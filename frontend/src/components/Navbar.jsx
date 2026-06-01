@@ -11,6 +11,7 @@ function Icon({ name, className = 'h-5 w-5' }) {
     monitors: 'M4 5h16M4 12h16M4 19h10',
     analytics: 'M4 19V5m0 14h16M8 16l3-4 3 2 4-7',
     apm: 'M5 12h4l2-7 4 14 2-7h2',
+    docs: 'M6 4h9l3 3v13H6V4zm8 0v4h4M9 12h6M9 16h6',
     incidents: 'M12 9v4m0 4h.01M10.3 4.3 2-2a2.4 2.4 0 0 1 3.4 0l6 6a2.4 2.4 0 0 1 0 3.4l-6 6a2.4 2.4 0 0 1-3.4 0l-6-6a2.4 2.4 0 0 1 0-3.4z',
     logs: 'M7 4h10M7 8h10M7 12h10M7 16h7M5 3h14v18H5z',
     status: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm0-14v5l3 2',
@@ -98,7 +99,8 @@ function Navbar() {
       label: 'Performance',
       items: [
         { to: '/analytics', label: 'Analytics', icon: 'analytics' },
-        { to: '/apm', label: 'APM', icon: 'apm' },
+        { to: '/apm', label: 'APM', icon: 'apm', end: true },
+        { to: '/apm/docs', label: 'SDK Docs', icon: 'docs' },
       ],
     },
     {
@@ -136,6 +138,7 @@ function Navbar() {
                 <NavLink
                   key={item.to}
                   to={item.to}
+                  end={item.end}
                   title={isCollapsed ? item.label : undefined}
                   className={({ isActive }) => `group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
                     isActive

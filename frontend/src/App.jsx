@@ -7,6 +7,7 @@ import CreateMonitor from './pages/CreateMonitor'
 import MonitorDetail from './pages/MonitorDetail'
 import Analytics from './pages/Analytics'
 import ApmDashboard from './pages/ApmDashboard'
+import ApmSdkDocs from './pages/ApmSdkDocs'
 import StatusPageManager from './pages/StatusPageManager'
 import StatusPage from './pages/StatusPage'
 import IncidentsPage from './pages/IncidentsPage'
@@ -51,6 +52,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ApmDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/apm/docs"
+          element={
+            <ProtectedRoute>
+              <ApmSdkDocs />
             </ProtectedRoute>
           }
         />

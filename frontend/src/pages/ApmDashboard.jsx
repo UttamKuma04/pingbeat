@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import {
   createApmApplication,
@@ -122,6 +123,12 @@ function ApmDashboard() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              to="/apm/docs"
+              className="flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              SDK Docs
+            </Link>
             <button
               type="button"
               onClick={() => setShowRegisterModal(true)}
