@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import Navbar from '../components/Navbar'
 
 const ingestUrl = 'https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/'
 
@@ -264,6 +263,7 @@ const skipPaths = [
 function ApmSdkDocs() {
   const [activeFramework, setActiveFramework] = useState('django')
   const [copiedKey, setCopiedKey] = useState('')
+  const isAuthenticated = !!localStorage.getItem('access_token')
   const framework = useMemo(
     () => frameworks.find((item) => item.id === activeFramework) || frameworks[0],
     [activeFramework]
@@ -277,7 +277,27 @@ function ApmSdkDocs() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <Navbar />
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link to={isAuthenticated ? '/dashboard' : '/'} className="flex items-center gap-3">
+            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 pulse-green" />
+            </span>
+            <span className="text-xl font-extrabold tracking-tight gradient-text">PingBEAT</span>
+          </Link>
+
+          <nav className="flex items-center gap-3">
+            <Link to={isAuthenticated ? '/apm' : '/login'} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+              {isAuthenticated ? 'Open APM' : 'Sign in'}
+            </Link>
+            {!isAuthenticated && (
+              <Link to="/register" className="rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">
+                Get Started
+              </Link>
+            )}
+          </nav>
+        </div>
+      </header>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -289,10 +309,10 @@ function ApmSdkDocs() {
             </p>
           </div>
           <Link
-            to="/apm"
+            to={isAuthenticated ? '/apm' : '/'}
             className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
           >
-            Back to APM
+            {isAuthenticated ? 'Back to APM' : 'Back to Home'}
           </Link>
         </div>
 

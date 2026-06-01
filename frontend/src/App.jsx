@@ -48,18 +48,14 @@ function App() {
           }
         />
         <Route
+          path="/apm/docs"
+          element={<ApmSdkDocs />}
+        />
+        <Route
           path="/apm"
           element={
             <ProtectedRoute>
               <ApmDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/apm/docs"
-          element={
-            <ProtectedRoute>
-              <ApmSdkDocs />
             </ProtectedRoute>
           }
         />
