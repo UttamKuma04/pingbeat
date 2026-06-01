@@ -223,6 +223,7 @@ def public_status_detail(request, slug):
     since_90d = now - timedelta(days=90)
 
     for monitor in status_page.monitors.all():
+        latest_log = monitor.logs.order_by('-checked_at').only('is_up', 'checked_at').first()
         logs_90d = MonitorLog.objects.filter(monitor=monitor, checked_at__gte=since_90d)
         total_checks = logs_90d.count()
         up_checks = logs_90d.filter(is_up=True).count()
@@ -252,8 +253,8 @@ def public_status_detail(request, slug):
             'name': monitor.name,
             'url': monitor.url,
             'is_active': monitor.is_active,
-            'is_up': monitor.is_up,
-            'last_checked': monitor.last_checked,
+            'is_up': latest_log.is_up if latest_log else None,
+            'last_checked': latest_log.checked_at if latest_log else None,
             'sla_90d': sla_90d,
             'status_history': status_history,
             'ssl_expiry': monitor.ssl_expiry,
