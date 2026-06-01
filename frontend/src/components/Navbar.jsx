@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { getIncidents, getMe } from '../services/api'
+import BrandLogo from './BrandLogo'
 import Breadcrumb from './Breadcrumb'
 import GlobalSearch from './GlobalSearch'
 import TimeRangePicker from './TimeRangePicker'
@@ -121,12 +122,7 @@ function Navbar() {
   const sidebar = (
     <aside className={`${sidebarWidth} flex h-full flex-col border-r border-slate-200 bg-white shadow-sm transition-all duration-200`}>
       <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-4">
-        <Link to="/dashboard" className="flex min-w-0 items-center gap-3">
-          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 pulse-green" />
-          </span>
-          {!isCollapsed && <span className="truncate text-xl font-extrabold tracking-tight gradient-text">PingBEAT</span>}
-        </Link>
+        <BrandLogo to="/dashboard" showText={!isCollapsed} className="min-w-0" />
       </div>
 
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">

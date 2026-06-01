@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import BrandLogo from '../components/BrandLogo'
 
 function Reveal({ children, delay = 0, className = '' }) {
   const ref = useRef(null)
@@ -255,13 +256,7 @@ function AboutPage() {
       {/* ── Nav ── */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to={isAuthenticated ? '/dashboard' : '/'} className="flex items-center space-x-3">
-            <div className="relative">
-              <div className="w-3 h-3 bg-emerald-500 rounded-full pulse-green"></div>
-              <div className="absolute inset-0 w-3 h-3 bg-emerald-500 rounded-full opacity-30 blur-sm"></div>
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">PingBEAT</span>
-          </Link>
+          <BrandLogo to={isAuthenticated ? '/dashboard' : '/'} />
           <div className="hidden md:flex items-center space-x-6 text-sm">
             <Link to="/" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Home</Link>
             <a href="#capabilities" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Capabilities</a>

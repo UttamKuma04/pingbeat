@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import BrandLogo from '../components/BrandLogo'
 import { register } from '../services/api'
 
 function Register() {
@@ -59,12 +60,7 @@ function Register() {
       <div className="relative w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center space-x-3 mb-4">
-            <div className="relative">
-              <div className="w-4 h-4 bg-emerald-500 rounded-full pulse-green"></div>
-            </div>
-            <h1 className="text-3xl font-bold gradient-text">PingBEAT</h1>
-          </div>
+          <BrandLogo to="/" className="justify-center mb-4" />
           <p className="text-slate-600 text-sm">
             Start monitoring your services in seconds.
           </p>

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import BrandLogo from '../components/BrandLogo'
 
 const ingestUrl = 'https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/'
 
@@ -291,10 +292,7 @@ function ApmSdkDocs() {
     <div className="min-h-screen bg-white text-slate-900">
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
         <div className="flex h-14 items-center justify-between px-4 lg:px-6">
-          <Link to={isAuthenticated ? '/dashboard' : '/'} className="flex items-center gap-3">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            <span className="text-lg font-extrabold tracking-tight text-slate-950">PingBEAT Docs</span>
-          </Link>
+          <BrandLogo to={isAuthenticated ? '/dashboard' : '/'} />
           <div className="flex items-center gap-2 text-sm">
             <Link to={isAuthenticated ? '/apm' : '/login'} className="font-semibold text-slate-600 hover:text-slate-950">
               {isAuthenticated ? 'Open APM' : 'Sign in'}
