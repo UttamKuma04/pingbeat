@@ -6,6 +6,7 @@ from django.http import HttpResponse
 from django.conf import settings
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.generics import ListAPIView
@@ -32,6 +33,10 @@ from .serializers import (
 from .tasks import aggregate_apm_metrics, process_apm_metrics
 
 
+MAX_MONITORS_PER_USER = 10
+MAX_APM_APPLICATIONS_PER_USER = 5
+
+
 class MonitorViewSet(viewsets.ModelViewSet):
     """CRUD viewset for monitors - scoped to the authenticated user."""
     serializer_class = MonitorSerializer
@@ -44,6 +49,10 @@ class MonitorViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
+        if Monitor.objects.filter(user=self.request.user).count() >= MAX_MONITORS_PER_USER:
+            raise ValidationError({
+                'detail': f'You can create at most {MAX_MONITORS_PER_USER} monitors.'
+            })
         serializer.save(user=self.request.user)
 
     @action(detail=True, methods=['post'])
@@ -412,6 +421,10 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
+        if Application.objects.filter(user=self.request.user).count() >= MAX_APM_APPLICATIONS_PER_USER:
+            raise ValidationError({
+                'detail': f'You can create at most {MAX_APM_APPLICATIONS_PER_USER} API keys.'
+            })
         serializer.save(user=self.request.user)
 
 

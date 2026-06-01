@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import Navbar from '../components/Navbar'
-import { createMonitor, getMonitor, updateMonitor } from '../services/api'
+import { createMonitor, getMonitor, getMonitors, updateMonitor } from '../services/api'
+
+const MAX_MONITORS = 10
 
 function CreateMonitor({ editMode = false }) {
   const { id } = useParams()
@@ -29,14 +31,32 @@ function CreateMonitor({ editMode = false }) {
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [error, setError] = useState('')
+  const [monitorCount, setMonitorCount] = useState(null)
 
   const isEditing = editMode || !!id
+  const isMonitorLimitReached = !isEditing && monitorCount !== null && monitorCount >= MAX_MONITORS
 
   useEffect(() => {
     if (isEditing && id) {
       fetchMonitorData()
+    } else {
+      fetchMonitorCount()
     }
   }, [id, isEditing])
+
+  async function fetchMonitorCount() {
+    try {
+      const res = await getMonitors()
+      const rows = res.data.results || res.data || []
+      const count = typeof res.data.count === 'number' ? res.data.count : Array.isArray(rows) ? rows.length : 0
+      setMonitorCount(count)
+      if (count >= MAX_MONITORS) {
+        setError(`You can create at most ${MAX_MONITORS} monitors.`)
+      }
+    } catch (err) {
+      setMonitorCount(null)
+    }
+  }
 
   async function fetchMonitorData() {
     setFetching(true)
@@ -70,6 +90,10 @@ function CreateMonitor({ editMode = false }) {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (isMonitorLimitReached) {
+      setError(`You can create at most ${MAX_MONITORS} monitors.`)
+      return
+    }
     setLoading(true)
 
     let parsedHeaders = {}
@@ -110,20 +134,7 @@ function CreateMonitor({ editMode = false }) {
       }
       navigate('/dashboard')
     } catch (err) {
-      if (err.response && err.response.data) {
-        const data = err.response.data
-        const messages = []
-        for (const key in data) {
-          if (Array.isArray(data[key])) {
-            messages.push(`${key}: ${data[key].join(' ')}`)
-          } else if (typeof data[key] === 'string') {
-            messages.push(`${key}: ${data[key]}`)
-          }
-        }
-        setError(messages.join(' ') || 'Something went wrong. Please check your inputs.')
-      } else {
-        setError('Network error. Please try again.')
-      }
+      setError(getApiErrorMessage(err, 'Network error. Please try again.'))
     } finally {
       setLoading(false)
     }
@@ -434,7 +445,7 @@ function CreateMonitor({ editMode = false }) {
             <div className="flex items-center space-x-4 pt-4 border-t border-slate-200">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isMonitorLimitReached}
                 className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-[1.01] hover:shadow-lg hover:shadow-emerald-600/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm"
               >
                 {loading ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Monitor'}
@@ -451,6 +462,20 @@ function CreateMonitor({ editMode = false }) {
       </main>
     </div>
   )
+}
+
+function getApiErrorMessage(err, fallback) {
+  const data = err?.response?.data
+  if (!data) return fallback
+  if (typeof data === 'string') return data
+  if (data.detail) return data.detail
+
+  const messages = Object.entries(data).flatMap(([key, value]) => {
+    if (Array.isArray(value)) return value.map((item) => `${key}: ${item}`)
+    if (typeof value === 'string') return [`${key}: ${value}`]
+    return []
+  })
+  return messages.join(' ') || 'Something went wrong. Please check your inputs.'
 }
 
 export default CreateMonitor

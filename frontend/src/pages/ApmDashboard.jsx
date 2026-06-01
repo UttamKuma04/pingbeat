@@ -11,6 +11,8 @@ import {
 } from '../services/api'
 import SparklineChart from '../components/SparklineChart'
 
+const MAX_API_KEYS = 5
+
 function ApmDashboard() {
   const [applications, setApplications] = useState([])
   const [selectedApplicationId, setSelectedApplicationId] = useState('')
@@ -19,12 +21,14 @@ function ApmDashboard() {
   const [endpoints, setEndpoints] = useState([])
   const [traffic, setTraffic] = useState([])
   const [errors, setErrors] = useState(null)
+  const [applicationCount, setApplicationCount] = useState(0)
   const [form, setForm] = useState({ name: '', environment: 'production' })
   const [showRegisterModal, setShowRegisterModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [copiedKey, setCopiedKey] = useState('')
+  const isApplicationLimitReached = applicationCount >= MAX_API_KEYS
 
   const queryParams = useMemo(() => {
     const params = { hours }
@@ -47,6 +51,7 @@ function ApmDashboard() {
       const res = await getApmApplications()
       const rows = res.data.results || res.data || []
       setApplications(rows)
+      setApplicationCount(typeof res.data.count === 'number' ? res.data.count : rows.length)
       if (!selectedApplicationId && rows.length > 0) {
         setSelectedApplicationId(String(rows[0].id))
       }
@@ -79,18 +84,24 @@ function ApmDashboard() {
   async function handleCreateApplication(event) {
     event.preventDefault()
     if (!form.name.trim()) return
+    if (isApplicationLimitReached) {
+      setError(`You can create at most ${MAX_API_KEYS} API keys.`)
+      setShowRegisterModal(false)
+      return
+    }
 
     setSaving(true)
     try {
       const res = await createApmApplication(form)
       const created = res.data
       setApplications((items) => [created, ...items])
+      setApplicationCount((count) => count + 1)
       setSelectedApplicationId(String(created.id))
       setForm({ name: '', environment: 'production' })
       setShowRegisterModal(false)
       setError('')
     } catch (err) {
-      setError('Failed to create application.')
+      setError(getApiErrorMessage(err, 'Failed to create application.'))
     } finally {
       setSaving(false)
     }
@@ -131,8 +142,15 @@ function ApmDashboard() {
             </Link>
             <button
               type="button"
-              onClick={() => setShowRegisterModal(true)}
-              className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+              onClick={() => {
+                if (isApplicationLimitReached) {
+                  setError(`You can create at most ${MAX_API_KEYS} API keys.`)
+                  return
+                }
+                setShowRegisterModal(true)
+              }}
+              disabled={isApplicationLimitReached}
+              className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Register Application
             </button>
@@ -170,56 +188,67 @@ function ApmDashboard() {
 
         <div className="mb-8">
           <div className="glass-card p-5">
-            <h2 className="mb-4 text-base font-bold text-slate-900">Applications</h2>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-base font-bold text-slate-900">Applications</h2>
+              <span className="text-xs font-semibold text-slate-500">{applicationCount}/{MAX_API_KEYS} API keys</span>
+            </div>
+            <div className="space-y-3">
               {applications.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
                   No applications registered yet.
                 </div>
               ) : (
-                applications.slice(0, 4).map((app) => (
-                  <button
-                    type="button"
+                applications.map((app) => (
+                  <div
                     key={app.id}
                     onClick={() => setSelectedApplicationId(String(app.id))}
-                    className={`rounded-lg border p-4 text-left transition ${
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        setSelectedApplicationId(String(app.id))
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    className={`grid cursor-pointer grid-cols-1 gap-4 rounded-lg border p-4 text-left transition sm:grid-cols-[minmax(0,1.25fr)_auto_minmax(180px,0.85fr)_auto] sm:items-center ${
                       String(app.id) === selectedApplicationId
                         ? 'border-emerald-300 bg-emerald-50'
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900">{app.name}</p>
-                        <p className="text-xs text-slate-500">{app.environment}</p>
-                      </div>
-                      <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
-                        {app.metrics_count || 0}
-                      </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">{app.name}</p>
+                      <p className="text-xs text-slate-500">{app.environment}</p>
                     </div>
-                    <div className="mt-3 flex items-center justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${
                         app.environment === 'production' ? 'bg-blue-50 text-blue-700' : app.environment === 'staging' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'
                       }`}>
                         {app.environment}
                       </span>
-                      <span className="text-xs text-slate-500">Last activity {app.last_seen ? new Date(app.last_seen).toLocaleDateString() : 'unknown'}</span>
+                      <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                        {app.metrics_count || 0} metrics
+                      </span>
                     </div>
-                    <div className="mt-3 flex items-center gap-2">
-                      <code className="min-w-0 flex-1 truncate rounded-md bg-slate-950 px-2 py-1 text-xs text-slate-100">
-                        {app.api_key}
+                    <div className="min-w-0">
+                      <p className="text-xs text-slate-500">Last activity {app.last_seen ? new Date(app.last_seen).toLocaleDateString() : 'unknown'}</p>
+                      <code className="mt-1 block truncate rounded-md bg-slate-950 px-2 py-1 text-xs text-slate-100">
+                        {maskApiKey(app.api_key)}
                       </code>
-                      <span
+                    </div>
+                    <div className="flex justify-start sm:justify-end">
+                      <button
+                        type="button"
                         onClick={(event) => {
                           event.stopPropagation()
                           copyApiKey(app.api_key)
                         }}
-                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
+                        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                       >
                         {copiedKey === app.api_key ? 'Copied' : 'Copy'}
-                      </span>
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 ))
               )}
             </div>
@@ -315,7 +344,7 @@ function ApmDashboard() {
                 <option value="staging">staging</option>
                 <option value="development">development</option>
               </select>
-              <button type="submit" disabled={saving} className="h-10 w-full rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
+              <button type="submit" disabled={saving || isApplicationLimitReached} className="h-10 w-full rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
                 {saving ? 'Creating...' : 'Create Application'}
               </button>
             </div>
@@ -324,6 +353,27 @@ function ApmDashboard() {
       )}
     </div>
   )
+}
+
+function maskApiKey(apiKey = '') {
+  if (!apiKey) return 'Hidden'
+  const prefix = apiKey.startsWith('pb_') ? 'pb_' : ''
+  const suffix = apiKey.slice(-4)
+  return `${prefix}${'*'.repeat(12)}${suffix}`
+}
+
+function getApiErrorMessage(err, fallback) {
+  const data = err?.response?.data
+  if (!data) return fallback
+  if (typeof data === 'string') return data
+  if (data.detail) return data.detail
+
+  const messages = Object.entries(data).flatMap(([key, value]) => {
+    if (Array.isArray(value)) return value.map((item) => `${key}: ${item}`)
+    if (typeof value === 'string') return [`${key}: ${value}`]
+    return []
+  })
+  return messages.join(' ') || fallback
 }
 
 function MetricCard({ label, value, tone = 'slate' }) {
