@@ -365,57 +365,6 @@ function AboutPage() {
           </div>
         </section>
 
-        {/* ── Architecture ── */}
-        <section id="architecture" className="py-24 bg-white border-y border-slate-200">
-          <div className="max-w-7xl mx-auto px-6">
-            <SectionHeader
-              eyebrow="Technical Architecture"
-              title="How the platform is built"
-              subtitle="PingBEAT uses a straightforward production stack that is easy to deploy, scale, and maintain without specialized infrastructure knowledge."
-            />
-            <div className="space-y-4">
-              {architecture.map((layer, i) => (
-                <Reveal key={layer.layer} delay={i * 60} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="grid grid-cols-1 md:grid-cols-[200px_180px_1fr] gap-4 md:items-center">
-                    <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Layer</p>
-                      <p className="font-bold text-slate-950">{layer.layer}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Technology</p>
-                      <span className="inline-block font-mono text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">{layer.tech}</span>
-                    </div>
-                    <p className="text-sm text-slate-600 leading-relaxed">{layer.desc}</p>
-                  </div>
-                </Reveal>
-              ))}
-            </div>
-
-            <Reveal delay={200} className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
-              <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                Deployment Stack
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  ['Django 4+','Backend API & admin'],
-                  ['Celery 5+','Async task execution'],
-                  ['Redis','Task broker & result store'],
-                  ['PostgreSQL','Primary data store'],
-                  ['React 18','Frontend SPA'],
-                  ['Vite','Frontend build tooling'],
-                  ['Tailwind CSS','UI styling system'],
-                  ['Docker','Container deployment'],
-                ].map(([tech, role]) => (
-                  <div key={tech} className="rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-sm">
-                    <p className="font-mono font-bold text-slate-900 text-xs">{tech}</p>
-                    <p className="text-slate-500 text-xs mt-0.5">{role}</p>
-                  </div>
-                ))}
-              </div>
-            </Reveal>
-          </div>
-        </section>
 
         {/* ── How monitoring works ── */}
         <section className="py-24 max-w-7xl mx-auto px-6">
