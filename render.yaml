@@ -1,0 +1,87 @@
+services:
+  - type: postgresql
+    name: pingbeat-postgres
+    ipAddress: private
+    plan: starter
+    postgresVersion: 16
+    databaseName: pingbeat
+    user: pingbeat_user
+
+  - type: redis
+    name: pingbeat-redis
+    ipAddress: private
+    plan: starter
+    redisVersion: 7
+
+  - type: web
+    name: pingbeat-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd backend && python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "*.render.com"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pingbeat-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: pingbeat-redis
+          type: redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+    plan: standard
+    
+  - type: background_worker
+    name: pingbeat-celery
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd backend && celery -A config worker --loglevel=info
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pingbeat-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: pingbeat-redis
+          type: redis
+          property: connectionString
+    plan: standard
+
+  - type: background_worker
+    name: pingbeat-celery-beat
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd backend && celery -A config beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pingbeat-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: pingbeat-redis
+          type: redis
+          property: connectionString
+    plan: standard
+
+  - type: static_site
+    name: pingbeat-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: pingbeat-backend
+          type: web
+          property: url
+          path: /api
