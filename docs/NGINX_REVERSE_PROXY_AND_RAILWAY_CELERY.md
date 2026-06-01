@@ -32,13 +32,28 @@ flow through the reverse proxy.
 
 ## Frontend API Calls
 
-The frontend already uses relative API calls:
+The frontend defaults to relative API calls:
 
 ```js
 baseURL: '/api'
 ```
 
-So no frontend code change is required.
+So when users visit the Nginx domain, browser requests go to:
+
+```txt
+https://your-nginx-domain.com/api/*
+```
+
+and Nginx forwards them to Render.
+
+If users visit the direct Vercel domain and Vercel is not applying
+`frontend/vercel.json`, set this Vercel environment variable and redeploy:
+
+```env
+VITE_API_BASE_URL=https://pingbeat-3.onrender.com/api
+```
+
+`VITE_API_URL` is also supported for compatibility.
 
 ## Railway Celery Services
 

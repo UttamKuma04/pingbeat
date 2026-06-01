@@ -1,7 +1,13 @@
 import axios from 'axios'
 
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  '/api'
+).replace(/\/$/, '')
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
 })
 
 // Request interceptor - attach access token
@@ -28,7 +34,7 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem('refresh_token')
       if (refreshToken) {
         try {
-          const res = await axios.post('/api/token/refresh/', {
+          const res = await axios.post(`${API_BASE_URL}/token/refresh/`, {
             refresh: refreshToken,
           })
           const newAccess = res.data.access
@@ -133,7 +139,7 @@ export function deleteStatusPage(id) {
 }
 
 export function getPublicStatus(slug) {
-  return axios.get(`/api/public-status/${slug}/`)
+  return axios.get(`${API_BASE_URL}/public-status/${slug}/`)
 }
 
 // Analytics
