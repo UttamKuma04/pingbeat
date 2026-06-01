@@ -62,13 +62,13 @@ Create two Railway services from the same repo/backend code.
 Worker start command:
 
 ```bash
-celery -A config worker --loglevel=info
+celery -A config worker --loglevel=info -P threads -c 8
 ```
 
-Low-memory worker start command:
+Lower-memory fallback worker start command:
 
 ```bash
-celery -A config worker --loglevel=info --pool=solo
+celery -A config worker --loglevel=info --pool=solo --concurrency=1
 ```
 
 Beat start command:

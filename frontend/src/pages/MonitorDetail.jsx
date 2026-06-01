@@ -409,11 +409,6 @@ function MonitorDetail() {
             </svg>
             <span>Back to Dashboard</span>
           </Link>
-
-          {/* Embeddable badge info */}
-          <div className="text-slate-500 text-xs font-mono select-all bg-white px-3 py-1.5 border border-slate-200 rounded shadow-inner">
-            Badge: {window.location.origin}/api/monitors/{monitor.id}/badge/
-          </div>
         </div>
 
         {/* SSL Expiry Warning Banner */}
