@@ -3,13 +3,42 @@ import { Link } from 'react-router-dom'
 
 const ingestUrl = 'https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/'
 
-const frameworks = [
-  {
-    id: 'django',
+const navSections = [
+  ['introduction', 'Introduction'],
+  ['quick-start', 'Quick Start'],
+  ['configuration', 'Configuration'],
+  ['payload', 'Payload Format'],
+  ['frameworks', 'Framework Setup'],
+  ['skip-paths', 'Skip Noisy Paths'],
+  ['verify', 'Verify Integration'],
+  ['troubleshooting', 'Troubleshooting'],
+]
+
+const examples = {
+  curl: {
+    label: 'cURL',
+    install: 'No SDK required',
+    setup: [
+      'curl -X POST "https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/" \\',
+      '  -H "Content-Type: application/json" \\',
+      "  -d '{",
+      '    "api_key": "pb_your_api_key_here",',
+      '    "metrics": [',
+      '      {',
+      '        "endpoint": "/manual-test",',
+      '        "method": "GET",',
+      '        "status_code": 200,',
+      '        "response_time_ms": 12.34,',
+      '        "timestamp": "2026-06-01T12:00:00+00:00"',
+      '      }',
+      '    ]',
+      "  }'",
+    ].join('\n'),
+  },
+  django: {
     label: 'Django',
     install: 'pip install requests',
-    file: 'your_project/pingbeat_apm.py',
-    code: [
+    setup: [
       'import os',
       'import time',
       'from datetime import datetime, timezone',
@@ -45,15 +74,18 @@ const frameworks = [
       '        response = self.get_response(request)',
       '        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)',
       '',
-      '        metric = {',
-      '            "endpoint": request.path,',
-      '            "method": request.method,',
-      '            "status_code": response.status_code,',
-      '            "response_time_ms": elapsed_ms,',
-      '            "timestamp": datetime.now(timezone.utc).isoformat(),',
-      '        }',
+      '        Thread(',
+      '            target=send_pingbeat_metric,',
+      '            args=({',
+      '                "endpoint": request.path,',
+      '                "method": request.method,',
+      '                "status_code": response.status_code,',
+      '                "response_time_ms": elapsed_ms,',
+      '                "timestamp": datetime.now(timezone.utc).isoformat(),',
+      '            },),',
+      '            daemon=True,',
+      '        ).start()',
       '',
-      '        Thread(target=send_pingbeat_metric, args=(metric,), daemon=True).start()',
       '        return response',
     ].join('\n'),
     attach: [
@@ -67,12 +99,10 @@ const frameworks = [
       ']',
     ].join('\n'),
   },
-  {
-    id: 'fastapi',
+  fastapi: {
     label: 'FastAPI',
     install: 'pip install httpx',
-    file: 'main.py',
-    code: [
+    setup: [
       'import os',
       'import time',
       'from datetime import datetime, timezone',
@@ -93,7 +123,10 @@ const frameworks = [
       '',
       '    try:',
       '        async with httpx.AsyncClient(timeout=timeout) as client:',
-      '            await client.post(ingest_url, json={"api_key": api_key, "metrics": [metric]})',
+      '            await client.post(',
+      '                ingest_url,',
+      '                json={"api_key": api_key, "metrics": [metric]},',
+      '            )',
       '    except httpx.HTTPError:',
       '        pass',
       '',
@@ -102,26 +135,22 @@ const frameworks = [
       'async def pingbeat_apm_middleware(request: Request, call_next):',
       '    started = time.perf_counter()',
       '    response = await call_next(request)',
-      '    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)',
       '',
-      '    metric = {',
+      '    await send_pingbeat_metric({',
       '        "endpoint": request.url.path,',
       '        "method": request.method,',
       '        "status_code": response.status_code,',
-      '        "response_time_ms": elapsed_ms,',
+      '        "response_time_ms": round((time.perf_counter() - started) * 1000, 2),',
       '        "timestamp": datetime.now(timezone.utc).isoformat(),',
-      '    }',
+      '    })',
       '',
-      '    await send_pingbeat_metric(metric)',
       '    return response',
     ].join('\n'),
   },
-  {
-    id: 'flask',
+  flask: {
     label: 'Flask',
     install: 'pip install requests',
-    file: 'app.py',
-    code: [
+    setup: [
       'import os',
       'import time',
       'from datetime import datetime, timezone',
@@ -131,20 +160,6 @@ const frameworks = [
       'from flask import Flask, g, request',
       '',
       'app = Flask(__name__)',
-      '',
-      '',
-      'def send_pingbeat_metric(metric):',
-      '    api_key = os.environ.get("PINGBEAT_APM_API_KEY")',
-      '    ingest_url = os.environ.get("PINGBEAT_APM_INGEST_URL")',
-      '    timeout = float(os.environ.get("PINGBEAT_APM_TIMEOUT_SECONDS", "3"))',
-      '',
-      '    if not api_key or not ingest_url:',
-      '        return',
-      '',
-      '    try:',
-      '        requests.post(ingest_url, json={"api_key": api_key, "metrics": [metric]}, timeout=timeout)',
-      '    except requests.RequestException:',
-      '        pass',
       '',
       '',
       '@app.before_request',
@@ -169,17 +184,27 @@ const frameworks = [
       '    Thread(target=send_pingbeat_metric, args=(metric,), daemon=True).start()',
       '    return response',
     ].join('\n'),
+    attach: [
+      'def send_pingbeat_metric(metric):',
+      '    api_key = os.environ.get("PINGBEAT_APM_API_KEY")',
+      '    ingest_url = os.environ.get("PINGBEAT_APM_INGEST_URL")',
+      '    if not api_key or not ingest_url:',
+      '        return',
+      '',
+      '    try:',
+      '        requests.post(',
+      '            ingest_url,',
+      '            json={"api_key": api_key, "metrics": [metric]},',
+      '            timeout=3,',
+      '        )',
+      '    except requests.RequestException:',
+      '        pass',
+    ].join('\n'),
   },
-  {
-    id: 'express',
+  express: {
     label: 'Express',
-    install: 'npm install',
-    file: 'server.js',
-    code: [
-      'const express = require("express")',
-      '',
-      'const app = express()',
-      '',
+    install: 'Node.js 18+ or a fetch polyfill',
+    setup: [
       'function sendPingbeatMetric(metric) {',
       '  const apiKey = process.env.PINGBEAT_APM_API_KEY',
       '  const ingestUrl = process.env.PINGBEAT_APM_INGEST_URL',
@@ -220,32 +245,7 @@ const frameworks = [
       'app.use(pingbeatApm)',
     ].join('\n'),
   },
-  {
-    id: 'generic',
-    label: 'Any Framework',
-    install: 'Use your framework HTTP client',
-    file: 'POST /api/apm/ingest/',
-    code: [
-      '{',
-      '  "api_key": "pb_your_api_key_here",',
-      '  "metrics": [',
-      '    {',
-      '      "endpoint": "/api/orders",',
-      '      "method": "GET",',
-      '      "status_code": 200,',
-      '      "response_time_ms": 42.5,',
-      '      "timestamp": "2026-06-01T12:00:00+00:00"',
-      '    }',
-      '  ]',
-      '}',
-    ].join('\n'),
-    attach: [
-      'curl -X POST "https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/" \\',
-      '  -H "Content-Type: application/json" \\',
-      "  -d '{\"api_key\":\"pb_your_api_key_here\",\"metrics\":[{\"endpoint\":\"/manual-test\",\"method\":\"GET\",\"status_code\":200,\"response_time_ms\":12.34,\"timestamp\":\"2026-06-01T12:00:00+00:00\"}]}'",
-    ].join('\n'),
-  },
-]
+}
 
 const envBlock = [
   'PINGBEAT_APM_API_KEY=pb_your_api_key_here',
@@ -253,7 +253,22 @@ const envBlock = [
   'PINGBEAT_APM_TIMEOUT_SECONDS=3',
 ].join('\n')
 
-const skipPaths = [
+const payloadBlock = [
+  '{',
+  '  "api_key": "pb_your_api_key_here",',
+  '  "metrics": [',
+  '    {',
+  '      "endpoint": "/api/orders",',
+  '      "method": "GET",',
+  '      "status_code": 200,',
+  '      "response_time_ms": 42.5,',
+  '      "timestamp": "2026-06-01T12:00:00+00:00"',
+  '    }',
+  '  ]',
+  '}',
+].join('\n')
+
+const skipBlock = [
   'SKIP_PREFIXES = ("/health", "/static", "/favicon.ico", "/admin")',
   '',
   'if request.path.startswith(SKIP_PREFIXES):',
@@ -261,13 +276,10 @@ const skipPaths = [
 ].join('\n')
 
 function ApmSdkDocs() {
-  const [activeFramework, setActiveFramework] = useState('django')
+  const [activeExample, setActiveExample] = useState('curl')
   const [copiedKey, setCopiedKey] = useState('')
   const isAuthenticated = !!localStorage.getItem('access_token')
-  const framework = useMemo(
-    () => frameworks.find((item) => item.id === activeFramework) || frameworks[0],
-    [activeFramework]
-  )
+  const example = useMemo(() => examples[activeExample], [activeExample])
 
   async function copyText(key, value) {
     await navigator.clipboard.writeText(value)
@@ -276,229 +288,256 @@ function ApmSdkDocs() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white text-slate-900">
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
+        <div className="flex h-14 items-center justify-between px-4 lg:px-6">
           <Link to={isAuthenticated ? '/dashboard' : '/'} className="flex items-center gap-3">
-            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 pulse-green" />
-            </span>
-            <span className="text-xl font-extrabold tracking-tight gradient-text">PingBEAT</span>
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            <span className="text-lg font-extrabold tracking-tight text-slate-950">PingBEAT Docs</span>
           </Link>
-
-          <nav className="flex items-center gap-3">
-            <Link to={isAuthenticated ? '/apm' : '/login'} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+          <div className="flex items-center gap-2 text-sm">
+            <Link to={isAuthenticated ? '/apm' : '/login'} className="font-semibold text-slate-600 hover:text-slate-950">
               {isAuthenticated ? 'Open APM' : 'Sign in'}
             </Link>
             {!isAuthenticated && (
-              <Link to="/register" className="rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">
-                Get Started
+              <Link to="/register" className="rounded bg-slate-950 px-3 py-1.5 font-semibold text-white">
+                Register
               </Link>
             )}
-          </nav>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-600">APM Documentation</p>
-            <h1 className="text-2xl font-bold text-slate-950">SDK Integration</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Add PingBEAT APM to any HTTP service by sending endpoint, method, status, latency, and timestamp metrics to the ingest API.
+      <div className="grid min-h-[calc(100vh-3.5rem)] grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_minmax(360px,42vw)]">
+        <aside className="hidden border-r border-slate-200 bg-slate-50 lg:block">
+          <div className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto px-5 py-6">
+            <p className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">APM SDK</p>
+            <nav className="space-y-1">
+              {navSections.map(([id, label]) => (
+                <a key={id} href={`#${id}`} className="block border-l-2 border-transparent px-3 py-2 text-sm font-medium text-slate-600 hover:border-emerald-500 hover:bg-white hover:text-slate-950">
+                  {label}
+                </a>
+              ))}
+            </nav>
+            <div className="mt-8 border-t border-slate-200 pt-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Examples</p>
+              <div className="mt-3 flex flex-col gap-1">
+                {Object.entries(examples).map(([key, value]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setActiveExample(key)}
+                    className={`text-left text-sm font-semibold ${activeExample === key ? 'text-emerald-700' : 'text-slate-600 hover:text-slate-950'}`}
+                  >
+                    {value.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <main className="min-w-0 px-5 py-8 sm:px-8 lg:px-10">
+          <section id="introduction" className="scroll-mt-20 border-b border-slate-200 pb-10">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-600">Application Performance Monitoring</p>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">PingBEAT APM SDK Integration</h1>
+            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
+              PingBEAT APM accepts lightweight HTTP request metrics from any backend framework. Instrument your application, send metrics to the ingest API, and view traffic, latency, endpoint rankings, and error rates in the APM dashboard.
             </p>
-          </div>
-          <Link
-            to={isAuthenticated ? '/apm' : '/'}
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-          >
-            {isAuthenticated ? 'Back to APM' : 'Back to Home'}
-          </Link>
-        </div>
+            <blockquote className="mt-6 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
+              The SDK format is intentionally simple: measure request duration, capture the response status, and post a JSON payload to PingBEAT.
+            </blockquote>
+          </section>
 
-        <section className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-4">
-          {[
-            ['1', 'Create application', 'Open APM and register an application for each service and environment.'],
-            ['2', 'Copy API key', 'Use the generated pb_ key only in server-side environment variables.'],
-            ['3', 'Install snippet', 'Choose a framework tab or use the generic HTTP contract.'],
-            ['4', 'Verify data', 'Make requests, then check APM traffic after one aggregation cycle.'],
-          ].map(([step, title, body]) => (
-            <div key={step} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-sm font-bold text-emerald-700">
-                {step}
+          <DocSection id="quick-start" title="Quick Start">
+            <OrderedList
+              items={[
+                'Open PingBEAT and go to APM.',
+                'Create an application for the service and environment you want to monitor.',
+                'Copy the generated API key. It starts with pb_.',
+                'Set the environment variables in your application.',
+                'Add the middleware or request hook for your framework.',
+                'Make a request to your service and check APM after one aggregation cycle.',
+              ]}
+            />
+          </DocSection>
+
+          <DocSection id="configuration" title="Configuration">
+            <p className="text-sm leading-6 text-slate-600">
+              Configure monitored services with environment variables. Keep API keys server-side and do not commit them to source control.
+            </p>
+            <DefinitionTable
+              rows={[
+                ['PINGBEAT_APM_API_KEY', 'Application API key generated by PingBEAT.'],
+                ['PINGBEAT_APM_INGEST_URL', 'Backend ingest endpoint ending in /api/apm/ingest/.'],
+                ['PINGBEAT_APM_TIMEOUT_SECONDS', 'Outbound request timeout. Keep this between 2 and 5 seconds.'],
+              ]}
+            />
+          </DocSection>
+
+          <DocSection id="payload" title="Payload Format">
+            <p className="text-sm leading-6 text-slate-600">
+              All frameworks send the same payload. PingBEAT accepts batches up to 1000 metrics per request.
+            </p>
+            <DefinitionTable
+              rows={[
+                ['api_key', 'The pb_ application key.'],
+                ['endpoint', 'Path only, such as /api/orders. Avoid query strings with sensitive data.'],
+                ['method', 'HTTP method, such as GET, POST, PUT, PATCH, or DELETE.'],
+                ['status_code', 'Integer HTTP response status code.'],
+                ['response_time_ms', 'Request duration in milliseconds.'],
+                ['timestamp', 'ISO 8601 timestamp. UTC is recommended.'],
+              ]}
+            />
+          </DocSection>
+
+          <DocSection id="frameworks" title="Framework Setup">
+            <p className="text-sm leading-6 text-slate-600">
+              Choose the matching example from the code panel. For unsupported frameworks, use the same pattern in request middleware: start timer before request handling, calculate elapsed time after response, then send the metric asynchronously.
+            </p>
+            <h3 className="mt-6 text-base font-bold text-slate-950">Supported examples</h3>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">
+              <li>Django middleware</li>
+              <li>FastAPI HTTP middleware</li>
+              <li>Flask before_request and after_request hooks</li>
+              <li>Express middleware</li>
+              <li>Generic HTTP ingestion for any framework</li>
+            </ul>
+          </DocSection>
+
+          <DocSection id="skip-paths" title="Skip Noisy Paths">
+            <p className="text-sm leading-6 text-slate-600">
+              Health checks, static assets, admin routes, and internal polling paths can create low-value traffic. Add a skip list before sending the metric.
+            </p>
+          </DocSection>
+
+          <DocSection id="verify" title="Verify Integration">
+            <OrderedList
+              items={[
+                'Send a manual cURL request to the ingest URL.',
+                'Confirm the API returns status accepted and queued_metrics greater than zero.',
+                'Trigger real traffic in your application.',
+                'Open the PingBEAT APM dashboard and select the application.',
+              ]}
+            />
+          </DocSection>
+
+          <DocSection id="troubleshooting" title="Troubleshooting">
+            <DefinitionTable
+              rows={[
+                ['No data appears', 'Confirm the ingest URL is reachable and the Celery aggregation task has run.'],
+                ['Invalid API key', 'Check that the key starts with pb_ and belongs to the selected application.'],
+                ['Slow user responses', 'Send metrics in a background task or batcher so app responses do not wait on PingBEAT.'],
+                ['Too much noise', 'Skip health, static, admin, and polling endpoints.'],
+                ['Large traffic volume', 'Batch metrics and keep each request at or below 1000 metrics.'],
+              ]}
+            />
+          </DocSection>
+        </main>
+
+        <aside className="border-t border-slate-800 bg-slate-950 text-slate-100 lg:border-l lg:border-t-0">
+          <div className="sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto">
+            <div className="border-b border-slate-800 px-5 py-4">
+              <div className="mb-4 flex flex-wrap gap-2">
+                {Object.entries(examples).map(([key, value]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setActiveExample(key)}
+                    className={`rounded px-2.5 py-1.5 text-xs font-bold ${activeExample === key ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                  >
+                    {value.label}
+                  </button>
+                ))}
               </div>
-              <h2 className="text-sm font-bold text-slate-900">{title}</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-500">{body}</p>
+              <p className="text-xs uppercase tracking-wider text-slate-500">Install</p>
+              <CopyableCode code={example.install} codeKey={`${activeExample}-install`} copiedKey={copiedKey} onCopy={copyText} compact />
             </div>
+
+            <ExampleSection title="Environment" code={envBlock} codeKey="env" copiedKey={copiedKey} onCopy={copyText} />
+            <ExampleSection title="Payload" code={payloadBlock} codeKey="payload" copiedKey={copiedKey} onCopy={copyText} />
+            <ExampleSection title={`${example.label} Example`} code={example.setup} codeKey={`${activeExample}-setup`} copiedKey={copiedKey} onCopy={copyText} />
+            {example.attach && (
+              <ExampleSection title="Attach" code={example.attach} codeKey={`${activeExample}-attach`} copiedKey={copiedKey} onCopy={copyText} />
+            )}
+            <ExampleSection title="Skip Paths" code={skipBlock} codeKey="skip" copiedKey={copiedKey} onCopy={copyText} />
+          </div>
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+function DocSection({ id, title, children }) {
+  return (
+    <section id={id} className="scroll-mt-20 border-b border-slate-200 py-10">
+      <h2 className="mb-4 text-2xl font-bold tracking-tight text-slate-950">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
+function OrderedList({ items }) {
+  return (
+    <ol className="list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600">
+      {items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ol>
+  )
+}
+
+function DefinitionTable({ rows }) {
+  return (
+    <div className="mt-5 overflow-x-auto border-y border-slate-200">
+      <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <tbody className="divide-y divide-slate-100">
+          {rows.map(([key, value]) => (
+            <tr key={key}>
+              <td className="w-56 whitespace-nowrap py-3 pr-6 font-mono text-xs font-semibold text-slate-800">{key}</td>
+              <td className="py-3 text-slate-600">{value}</td>
+            </tr>
           ))}
-        </section>
-
-        <section className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-[320px_1fr]">
-          <div className="space-y-6">
-            <div className="glass-card p-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 className="text-base font-bold text-slate-900">Environment</h2>
-                <button
-                  type="button"
-                  onClick={() => copyText('env', envBlock)}
-                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
-                >
-                  {copiedKey === 'env' ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-              <CodeBlock value={envBlock} />
-            </div>
-
-            <div className="glass-card p-5">
-              <h2 className="mb-4 text-base font-bold text-slate-900">What PingBEAT Collects</h2>
-              <div className="space-y-3 text-sm">
-                {['Endpoint path', 'HTTP method', 'Status code', 'Response time', 'Timestamp'].map((item) => (
-                  <div key={item} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
-                    <span className="text-slate-600">{item}</span>
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  </div>
-                ))}
-              </div>
-              <p className="mt-4 text-xs leading-5 text-slate-500">
-                Request bodies, headers, cookies, tokens, and user data should stay out of APM payloads.
-              </p>
-            </div>
-          </div>
-
-          <div className="glass-card overflow-hidden">
-            <div className="border-b border-slate-200 bg-white px-5 py-4">
-              <div className="flex flex-wrap gap-2">
-                {frameworks.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveFramework(item.id)}
-                    className={`h-9 rounded-lg px-3 text-sm font-semibold transition ${
-                      item.id === activeFramework
-                        ? 'bg-slate-950 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="p-5">
-              <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <InfoTile label="Install" value={framework.install} />
-                <InfoTile label="Add to" value={framework.file} />
-              </div>
-
-              <div className="mb-6">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-bold text-slate-900">{framework.label} setup</h2>
-                  <button
-                    type="button"
-                    onClick={() => copyText(`${framework.id}-code`, framework.code)}
-                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
-                  >
-                    {copiedKey === `${framework.id}-code` ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <CodeBlock value={framework.code} large />
-              </div>
-
-              {framework.attach && (
-                <div>
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <h2 className="text-sm font-bold text-slate-900">
-                      {framework.id === 'generic' ? 'Manual test' : 'Attach instrumentation'}
-                    </h2>
-                    <button
-                      type="button"
-                      onClick={() => copyText(`${framework.id}-attach`, framework.attach)}
-                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
-                    >
-                      {copiedKey === `${framework.id}-attach` ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-                  <CodeBlock value={framework.attach} />
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="glass-card p-5">
-            <h2 className="mb-4 text-base font-bold text-slate-900">Configuration</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <tbody className="divide-y divide-slate-100">
-                  {[
-                    ['PINGBEAT_APM_API_KEY', 'Application key generated in the APM page.'],
-                    ['PINGBEAT_APM_INGEST_URL', 'Your backend URL ending in /api/apm/ingest/.'],
-                    ['PINGBEAT_APM_TIMEOUT_SECONDS', 'Short outbound timeout, usually 2 to 5 seconds.'],
-                  ].map(([key, value]) => (
-                    <tr key={key}>
-                      <td className="whitespace-nowrap px-3 py-3 font-mono text-xs font-semibold text-slate-800">{key}</td>
-                      <td className="px-3 py-3 text-slate-600">{value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="glass-card p-5">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-slate-900">Skip Noisy Paths</h2>
-              <button
-                type="button"
-                onClick={() => copyText('skip', skipPaths)}
-                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
-              >
-                {copiedKey === 'skip' ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-            <p className="mb-3 text-sm text-slate-600">Exclude health checks, static assets, admin routes, and any internal polling paths.</p>
-            <CodeBlock value={skipPaths} />
-          </div>
-        </section>
-
-        <section className="mt-8 glass-card p-5">
-          <h2 className="mb-4 text-base font-bold text-slate-900">Troubleshooting</h2>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {[
-              'Confirm the API key starts with pb_.',
-              'Confirm the ingest URL uses HTTPS in production.',
-              'Check that the monitored app can reach PingBEAT.',
-              'Avoid sending more than 1000 metrics per batch.',
-              'Wait for the aggregation task before reading charts.',
-              'Run Celery worker and beat when async ingest is enabled.',
-            ].map((item) => (
-              <div key={item} className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-                {item}
-              </div>
-            ))}
-          </div>
-        </section>
-      </main>
+        </tbody>
+      </table>
     </div>
   )
 }
 
-function InfoTile({ label, value }) {
+function ExampleSection({ title, code, codeKey, copiedKey, onCopy }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-      <p className="mb-1 text-xs font-bold uppercase text-slate-400">{label}</p>
-      <p className="break-words font-mono text-xs font-semibold text-slate-800">{value}</p>
-    </div>
+    <section className="border-b border-slate-800 px-5 py-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-bold text-slate-200">{title}</h3>
+        <button
+          type="button"
+          onClick={() => onCopy(codeKey, code)}
+          className="rounded border border-slate-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-slate-500"
+        >
+          {copiedKey === codeKey ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre className="overflow-x-auto text-xs leading-5 text-slate-100">
+        <code>{code}</code>
+      </pre>
+    </section>
   )
 }
 
-function CodeBlock({ value, large = false }) {
+function CopyableCode({ code, codeKey, copiedKey, onCopy, compact = false }) {
   return (
-    <pre className={`overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs leading-5 text-slate-100 ${large ? 'max-h-[520px]' : 'max-h-72'}`}>
-      <code>{value}</code>
-    </pre>
+    <div className="mt-2 flex items-center gap-2">
+      <code className={`min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs text-slate-100 ${compact ? 'py-1' : 'py-2'}`}>
+        {code}
+      </code>
+      <button
+        type="button"
+        onClick={() => onCopy(codeKey, code)}
+        className="rounded border border-slate-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-slate-500"
+      >
+        {copiedKey === codeKey ? 'Copied' : 'Copy'}
+      </button>
+    </div>
   )
 }
 
