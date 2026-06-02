@@ -100,38 +100,6 @@ function AboutPage() {
     },
   ]
 
-  const architecture = [
-    {
-      layer: 'API Layer',
-      tech: 'Django REST Framework',
-      desc: 'Handles authentication, monitor CRUD, log queries, incident management, status page configuration, APM data ingestion, and maintenance window scheduling.',
-    },
-    {
-      layer: 'Task Queue',
-      tech: 'Celery + Redis',
-      desc: 'check_monitors runs every 30 seconds via Celery Beat. Workers execute HTTP probes asynchronously, update SSL metadata, write MonitorLog records, and manage incident state without touching the request cycle.',
-    },
-    {
-      layer: 'Data Store',
-      tech: 'PostgreSQL',
-      desc: 'Stores monitors, logs, incidents, status pages, maintenance windows, and APM metrics. Log retention is managed by the cleanup_old_logs periodic task to control database growth.',
-    },
-    {
-      layer: 'Frontend',
-      tech: 'React + Vite + Tailwind',
-      desc: 'Single-page application with JWT-based auth, 30-second auto-refresh polling, browser notification support, and a collapsible sidebar navigation for all platform sections.',
-    },
-    {
-      layer: 'Alert Dispatch',
-      tech: 'Celery Tasks',
-      desc: 'send_monitor_alert fires when status changes. Routes to Email (SMTP), Slack (incoming webhook), Discord (webhook), or a custom POST endpoint configured per monitor.',
-    },
-    {
-      layer: 'Public Layer',
-      tech: 'Unauthenticated endpoints',
-      desc: 'Status pages are served via public API endpoints with no auth requirement. Badge endpoints provide embeddable SVG status indicators for README files and external dashboards.',
-    },
-  ]
 
   const monitoringCapabilities = [
     {
@@ -174,6 +142,19 @@ function AboutPage() {
       ],
     },
     {
+      category: 'Alerting & Automation',
+      items: [
+        'Email status-change notifications',
+        'Slack incoming webhook alerts',
+        'Discord webhook incident cards',
+        'Custom webhook POST payloads',
+        'Per-monitor alert channel routing',
+        'Asynchronous alert dispatch through Celery',
+        'Maintenance-window alert suppression',
+        'Bulk pause, resume, and delete actions',
+      ],
+    },
+    {
       category: 'Analytics & Reporting',
       items: [
         '24h, 7d, 30d SLA percentages',
@@ -190,7 +171,7 @@ function AboutPage() {
     {
       category: 'Status Pages',
       items: [
-        'Unlimited status pages',
+        'Multiple status pages',
         'Custom URL slugs',
         'Monitor selection per page',
         '90-day status history grid',
@@ -211,6 +192,19 @@ function AboutPage() {
         'Traffic volume over time',
         'Multi-environment support',
         'Top and slowest endpoint rankings',
+      ],
+    },
+    {
+      category: 'Deployment & Access',
+      items: [
+        'Self-hosted Django REST API',
+        'React and Vite frontend',
+        'PostgreSQL-backed evidence storage',
+        'Redis and Celery background workers',
+        'JWT authentication with refresh tokens',
+        'User-scoped monitors and status pages',
+        'Per-application APM API keys',
+        'No third-party telemetry vendor required',
       ],
     },
   ]
@@ -569,7 +563,7 @@ function AboutPage() {
             {[
               {
                 title: 'Monitors should be cheap to create',
-                body: 'A tool that makes it hard or expensive to add a new monitor creates blind spots. PingBEAT has no per-monitor limits. Add as many checks as your infrastructure warrants.',
+                body: 'A tool that makes it hard or expensive to add a new monitor creates blind spots. PingBEAT keeps monitoring self-hosted and predictable, with starter caps that can be tuned for the infrastructure you operate.',
               },
               {
                 title: 'Evidence matters more than dashboards',

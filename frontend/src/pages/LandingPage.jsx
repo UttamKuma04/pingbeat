@@ -382,6 +382,11 @@ function LandingPage() {
       desc: 'Automatically capture certificate expiry dates, issuers, and validity state on every check. Get warned before certificates expire so your users never see a security warning.',
     },
     {
+      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>,
+      title: 'Self-Hosted Data Control',
+      desc: 'Run PingBEAT on your own infrastructure with Django, PostgreSQL, Redis, Celery, and React. Monitor targets, check logs, incidents, and API keys stay in your environment.',
+    },
+    {
       icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
       title: 'Multi-Region Probes',
       desc: 'Tag Celery workers by geographic region so every check log carries location context. Understand whether outages are global or region-specific at a glance.',
@@ -394,7 +399,7 @@ function LandingPage() {
     {
       icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>,
       title: 'Maintenance Windows',
-      desc: 'Schedule planned downtime windows per monitor so alerting stays quiet during deployments, migrations, and infrastructure work. Windows are visible on status pages.',
+      desc: 'Schedule planned downtime windows per monitor so checks and alerts stay quiet during deployments, migrations, and infrastructure work. Maintenance logs are preserved for audit context.',
     },
     {
       icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
@@ -422,6 +427,11 @@ function LandingPage() {
       desc: 'Search and filter every check result across all monitors. Filter by status, response time, status code class, region, and monitor name. Inspect individual logs in a detail panel.',
     },
     {
+      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>,
+      title: 'Badges & CSV Reports',
+      desc: 'Expose SVG uptime badges for README or docs embeds, and export monitor logs as CSV files for client reports, audits, and reliability reviews.',
+    },
+    {
       icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>,
       title: 'Fleet Analytics',
       desc: 'Cross-monitor SLA percentages, latency distribution histograms, downtime heatmaps by hour, slowest services ranking, and portfolio-level health dashboards.',
@@ -429,7 +439,7 @@ function LandingPage() {
     {
       icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>,
       title: 'Bulk Monitor Actions',
-      desc: 'Select multiple monitors from the dashboard and pause, resume, or delete them in a single operation. Manage large fleets without navigating monitor by monitor.',
+      desc: 'Select multiple monitors from the dashboard and pause, resume, or delete them in a single operation. Manage endpoint groups without navigating monitor by monitor.',
     },
   ]
 
@@ -490,10 +500,6 @@ function LandingPage() {
   ]
 
   const stats = [
-    ['30s', 'Minimum check interval'],
-    ['90d', 'Status page history'],
-    ['4+', 'Alert destinations'],
-    ['∞', 'Monitors supported'],
   ]
 
   return (
@@ -536,7 +542,7 @@ function LandingPage() {
               <span className="bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">Before your users do.</span>
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-slate-600 max-w-2xl mb-8 leading-relaxed">
-              PingBEAT monitors websites and APIs around the clock, tracks SSL certificates, records every incident, schedules maintenance windows, and routes alerts to the channels your team already watches — all from infrastructure you control.
+              PingBEAT monitors websites and APIs around the clock, tracks SSL certificates, records every incident, collects endpoint-level APM metrics, and routes alerts to the channels your team already watches - all from infrastructure you control.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
               {isAuthenticated ? (
@@ -549,7 +555,7 @@ function LandingPage() {
               )}
             </div>
             <div className="flex flex-wrap gap-6 text-sm text-slate-500">
-              {['No credit card required','Self-hosted & open','30s check intervals'].map(t => (
+              {['No credit card required','Self-hosted data control','APM + uptime together'].map(t => (
                 <span key={t} className="flex items-center gap-1.5">
                   <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
                   {t}
@@ -575,7 +581,7 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* ── Feature overview ── */}
+
       <section id="features" className="py-24 max-w-7xl mx-auto px-6">
         <SectionHeader
           eyebrow="Platform Capabilities"
@@ -804,7 +810,7 @@ function LandingPage() {
           <SectionHeader
             eyebrow="Use Cases"
             title="Built for teams that take reliability seriously"
-            subtitle="Whether you're a solo developer or an SRE team managing hundreds of endpoints, PingBEAT adapts to your workflow."
+            subtitle="Whether you're a solo developer or a small infrastructure team managing critical endpoints, PingBEAT adapts to your workflow."
             centered
           />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -874,7 +880,7 @@ function LandingPage() {
       <section className="py-24 max-w-7xl mx-auto px-6">
         <SectionHeader
           eyebrow="Background Jobs"
-          title="Celery keeps monitoring running 24/7"
+          title="Keeps monitoring running 24/7"
           subtitle="All monitoring work is isolated from the web request cycle. Checks, alerts, and cleanup run continuously without affecting dashboard responsiveness."
         />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

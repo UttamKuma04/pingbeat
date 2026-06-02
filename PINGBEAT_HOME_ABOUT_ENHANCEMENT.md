@@ -143,7 +143,7 @@ This exploits clear gaps: every competitor above is SaaS-only (except Elastic, w
 ```jsx
 const features = [
   // Existing — keep:
-  { icon: "🟢", title: "Uptime Monitoring", desc: "HTTP, ping, SSL, keyword checks every 30s" },
+  { icon: "🟢", : "Uptime Monitoring", desc: "HTTP, ping, SSL, keyword checks every 30s" },
   { icon: "📈", title: "APM Dashboard", desc: "Endpoint latency, P95/P99, error rates, traffic trends" },
   { icon: "📄", title: "Public Status Pages", desc: "Shareable 90-day uptime history on your domain" },
 
