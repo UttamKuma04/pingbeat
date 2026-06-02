@@ -104,7 +104,7 @@ function Dashboard() {
             if (title && body) {
               new Notification(title, {
                 body,
-                icon: '/favicon.ico',
+                icon: '/favicon.svg',
               })
             }
           }
