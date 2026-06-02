@@ -22,7 +22,7 @@ It does not collect request bodies, headers, cookies, tokens, or user data.
 Your ingest URL is:
 
 ```text
-https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/
+https://pingbeat.in/api/apm/ingest/
 ```
 
 For this deployment, that is usually:
@@ -37,7 +37,7 @@ Add these to the app you want to monitor:
 
 ```env
 PINGBEAT_APM_API_KEY=pb_your_api_key_here
-PINGBEAT_APM_INGEST_URL=https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/
+PINGBEAT_APM_INGEST_URL=https://pingbeat.in/api/apm/ingest/
 PINGBEAT_APM_TIMEOUT_SECONDS=3
 ```
 
@@ -233,7 +233,7 @@ Place the check before creating and sending the metric.
 You can confirm the API key and ingest URL manually:
 
 ```bash
-curl -X POST "https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/" \
+curl -X POST "https://pingbeat.in/api/apm/ingest/" \
   -H "Content-Type: application/json" \
   -d '{
     "api_key": "pb_your_api_key_here",

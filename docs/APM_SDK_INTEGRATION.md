@@ -22,14 +22,14 @@ Do not send request bodies, headers, cookies, tokens, authorization values, or u
 Your ingest URL is:
 
 ```text
-https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/
+https://pingbeat.in/api/apm/ingest/
 ```
 
 ## 2. Environment Variables
 
 ```env
 PINGBEAT_APM_API_KEY=pb_your_api_key_here
-PINGBEAT_APM_INGEST_URL=https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/
+PINGBEAT_APM_INGEST_URL=https://pingbeat.in/api/apm/ingest/
 PINGBEAT_APM_TIMEOUT_SECONDS=3
 ```
 
@@ -77,7 +77,7 @@ For additional frameworks, implement the same five steps:
 ## 5. Manual Verification
 
 ```bash
-curl -X POST "https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/" \
+curl -X POST "https://pingbeat.in/api/apm/ingest/" \
   -H "Content-Type: application/json" \
   -d '{
     "api_key": "pb_your_api_key_here",

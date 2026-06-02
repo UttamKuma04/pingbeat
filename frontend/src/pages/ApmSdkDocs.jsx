@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
 
-const ingestUrl = 'https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/'
+const ingestUrl = 'https://pingbeat.in/api/apm/ingest/'
 
 const navSections = [
   ['introduction', 'Introduction'],
@@ -20,7 +20,7 @@ const examples = {
     label: 'cURL',
     install: 'No SDK required',
     setup: [
-      'curl -X POST "https://YOUR-PINGBEAT-DOMAIN/api/apm/ingest/" \\',
+      'curl -X POST "https://pingbeat.in/api/apm/ingest/" \\',
       '  -H "Content-Type: application/json" \\',
       "  -d '{",
       '    "api_key": "pb_your_api_key_here",',
