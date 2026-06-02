@@ -142,19 +142,6 @@ function AboutPage() {
       ],
     },
     {
-      category: 'Alerting & Automation',
-      items: [
-        'Email status-change notifications',
-        'Slack incoming webhook alerts',
-        'Discord webhook incident cards',
-        'Custom webhook POST payloads',
-        'Per-monitor alert channel routing',
-        'Asynchronous alert dispatch through Celery',
-        'Maintenance-window alert suppression',
-        'Bulk pause, resume, and delete actions',
-      ],
-    },
-    {
       category: 'Analytics & Reporting',
       items: [
         '24h, 7d, 30d SLA percentages',
@@ -192,19 +179,6 @@ function AboutPage() {
         'Traffic volume over time',
         'Multi-environment support',
         'Top and slowest endpoint rankings',
-      ],
-    },
-    {
-      category: 'Deployment & Access',
-      items: [
-        'Self-hosted Django REST API',
-        'React and Vite frontend',
-        'PostgreSQL-backed evidence storage',
-        'Redis and Celery background workers',
-        'JWT authentication with refresh tokens',
-        'User-scoped monitors and status pages',
-        'Per-application APM API keys',
-        'No third-party telemetry vendor required',
       ],
     },
   ]
@@ -254,7 +228,6 @@ function AboutPage() {
           <div className="hidden md:flex items-center space-x-6 text-sm">
             <Link to="/" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Home</Link>
             <a href="#capabilities" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Capabilities</a>
-            <a href="#architecture" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Architecture</a>
             <a href="#faq" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">FAQ</a>
           </div>
           {isAuthenticated ? (
