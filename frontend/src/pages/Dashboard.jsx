@@ -240,18 +240,18 @@ function Dashboard() {
     <div className="min-h-screen bg-slate-50 pb-24 text-slate-800">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 mb-1">Dashboard</h1>
             <p className="text-slate-650 text-sm">
               Overview of all your monitored services
             </p>
           </div>
-          <div className="flex items-center space-x-4 mt-4 md:mt-0">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
             {/* Auto refresh counter badge */}
-            <div className="flex items-center space-x-2 bg-white border border-slate-250 rounded-lg px-3 py-2 text-xs text-slate-600 font-mono shadow-sm">
+            <div className="flex items-center gap-2 bg-white border border-slate-250 rounded-lg px-3 py-2 text-xs text-slate-600 font-mono shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>Refreshes in {refreshCountdown}s</span>
               <button onClick={handleManualRefresh} className="ml-1 text-slate-400 hover:text-slate-900 transition-colors" title="Force Refresh">
@@ -263,7 +263,7 @@ function Dashboard() {
 
             <Link
               to="/monitors/new"
-              className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-650/10 text-sm"
+              className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-650/10 text-sm"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -323,7 +323,7 @@ function Dashboard() {
 
         {/* Filters Panel */}
         <div className="glass-card p-4 mb-4 flex flex-col gap-4 shadow-sm">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           {/* Search bar */}
           <div className="relative w-full md:w-80">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -341,9 +341,9 @@ function Dashboard() {
           </div>
 
           {/* Status and Tag Filters */}
-          <div className="flex flex-wrap gap-3 items-center justify-end w-full md:w-auto">
+          <div className="flex w-full flex-wrap items-center gap-3 md:w-auto md:justify-end">
             {/* Status tabs */}
-            <div className="flex bg-slate-100 border border-slate-200 rounded-lg p-0.5 text-xs font-semibold">
+            <div className="flex max-w-full overflow-x-auto bg-slate-100 border border-slate-200 rounded-lg p-0.5 text-xs font-semibold">
               {['ALL', 'UP', 'DOWN', 'PAUSED'].map((status) => (
                 <button
                   key={status}
@@ -364,7 +364,7 @@ function Dashboard() {
               <select
                 value={selectedTag}
                 onChange={(e) => setSelectedTag(e.target.value)}
-                className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-750 font-semibold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 shadow-sm"
+                className="min-w-0 flex-1 px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-750 font-semibold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 shadow-sm sm:flex-none"
               >
                 <option value="">All Tags</option>
                 {allTags.map((tag) => (
@@ -374,19 +374,19 @@ function Dashboard() {
                 ))}
               </select>
             )}
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-750 font-semibold">
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="min-w-0 flex-1 px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-750 font-semibold sm:flex-none">
               <option value="status">Sort by status</option>
               <option value="name">Sort by name</option>
               <option value="response">Sort by response</option>
               <option value="last_checked">Sort by last checked</option>
               <option value="created">Sort by created</option>
             </select>
-            <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))} className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-750 font-semibold">
+            <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))} className="min-w-0 flex-1 px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-750 font-semibold sm:flex-none">
               <option value={10}>10 rows</option>
               <option value={25}>25 rows</option>
               <option value={50}>50 rows</option>
             </select>
-            <div className="flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs font-semibold">
+            <div className="flex max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs font-semibold">
               {['list', 'grid', 'compact'].map((mode) => (
                 <button key={mode} type="button" onClick={() => updateViewMode(mode)} className={`rounded-md px-3 py-2 capitalize ${viewMode === mode ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}>
                   {mode}
@@ -492,7 +492,7 @@ function Dashboard() {
             {filteredMonitors.map((monitor) => (
               <div
                 key={monitor.id}
-                className={`glass-card cursor-pointer transition-all duration-200 hover:border-slate-300 hover:bg-slate-100/40 group flex items-center shadow-sm ${viewMode === 'compact' ? 'p-3' : 'p-5'}`}
+                className={`glass-card cursor-pointer transition-all duration-200 hover:border-slate-300 hover:bg-slate-100/40 group flex items-start shadow-sm sm:items-center ${viewMode === 'compact' ? 'p-3' : 'p-5'}`}
               >
                 {/* Bulk Select Checkbox */}
                 <div className="mr-4 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -505,10 +505,10 @@ function Dashboard() {
                 </div>
 
                 <div className="flex-1 min-w-0" onClick={() => navigate(`/monitors/${monitor.id}`)}>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center min-w-0">
                       <div className="min-w-0">
-                        <div className="flex items-center space-x-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
                           <h3 className="text-slate-900 font-semibold group-hover:text-emerald-650 transition-colors duration-200 truncate">
                             {monitor.name}
                           </h3>
@@ -528,7 +528,7 @@ function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-4 flex-shrink-0 pl-7 sm:pl-0 md:grid md:grid-cols-[25rem_7rem_7rem_1rem] md:gap-14 md:space-x-0">
+                    <div className="flex w-full flex-wrap items-center gap-3 pl-0 sm:w-auto sm:flex-nowrap sm:justify-end md:gap-4">
                       <LiveStatusBadge
                         isUp={monitor.is_up}
                         isActive={monitor.is_active}
@@ -568,12 +568,12 @@ function Dashboard() {
 
       {/* Floating Bulk Action Drawbar */}
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 max-w-xl w-[90%] bg-white border border-slate-200/80 rounded-xl px-6 py-4 flex items-center justify-between shadow-2xl shadow-slate-300/40 backdrop-blur-xl">
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 max-w-xl w-[calc(100%-2rem)] bg-white border border-slate-200/80 rounded-xl px-4 py-4 flex flex-col gap-3 shadow-2xl shadow-slate-300/40 backdrop-blur-xl sm:bottom-6 sm:w-[90%] sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="text-sm font-semibold text-slate-700">
             Selected: <strong className="text-emerald-600">{selectedIds.length}</strong> monitors
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => handleBulkAction('pause')}
               disabled={bulkActionLoading}

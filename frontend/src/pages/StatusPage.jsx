@@ -64,15 +64,15 @@ function StatusPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between">
-      <div className="max-w-4xl mx-auto w-full px-4 py-12">
+      <div className="max-w-4xl mx-auto w-full px-4 py-8 sm:py-12">
         {/* Header Title */}
-        <div className="flex items-center space-x-3 mb-8">
+        <div className="flex items-center gap-3 mb-8">
           <div className="w-3.5 h-3.5 bg-emerald-500 rounded-full pulse-green"></div>
           <h1 className="text-2xl font-bold text-slate-900">{data.title}</h1>
         </div>
 
         {/* Global Banner status */}
-        <div className={`p-5 rounded-xl border mb-10 flex items-center space-x-4 ${
+        <div className={`p-5 rounded-xl border mb-10 flex items-start gap-4 sm:items-center ${
           anyDown
             ? 'bg-red-50 border-red-200 text-red-650'
             : allUp
@@ -111,14 +111,14 @@ function StatusPage() {
           
           {data.monitors.map((m) => {
             return (
-              <div key={m.id} className="glass-card p-6">
+              <div key={m.id} className="glass-card p-4 sm:p-6">
                 {/* Header of service */}
-                <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-                  <div>
+                <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
                     <h3 className="text-slate-900 font-bold">{m.name}</h3>
-                    <p className="text-slate-400 text-xs font-mono">{m.url}</p>
+                    <p className="break-anywhere text-slate-400 text-xs font-mono">{m.url}</p>
                   </div>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className="text-slate-500 font-mono text-xs">
                       SLA 90d: <strong className={getSlaColor(m.sla_90d)}>{m.sla_90d ? `${m.sla_90d}%` : '—'}</strong>
                     </span>
@@ -177,14 +177,14 @@ function StatusPage() {
 
                 {/* SSL cert info */}
                 {m.ssl_expiry && (
-                  <div className="mt-4 border-t border-slate-200 pt-3 flex items-center justify-between text-xs text-slate-500">
-                    <span className="flex items-center space-x-1.5">
+                  <div className="mt-4 flex flex-col gap-2 border-t border-slate-200 pt-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="flex items-center gap-1.5">
                       <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                       </svg>
                       <span>SSL certificate verified</span>
                     </span>
-                    <span className="font-mono text-[10px] text-slate-400">
+                    <span className="break-anywhere font-mono text-[10px] text-slate-400">
                       Expires in: {Math.max(0, Math.ceil((new Date(m.ssl_expiry) - new Date()) / (1000 * 60 * 60 * 24)))} days ({m.ssl_issuer})
                     </span>
                   </div>

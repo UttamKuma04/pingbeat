@@ -6,7 +6,7 @@ function BrandLogo({ to = '/', showText = true, className = '', textClassName = 
     <img
       src={showText ? '/logo.svg' : '/favicon.svg'}
       alt="PingBEAT"
-      className={showText ? 'h-10 w-36 shrink-0 object-cover object-center' : 'h-9 w-9 shrink-0 object-contain'}
+      className={showText ? 'h-9 w-auto max-w-[8.5rem] shrink-0 object-contain sm:h-10 sm:max-w-[9rem]' : 'h-9 w-9 shrink-0 object-contain'}
     />
   )
 

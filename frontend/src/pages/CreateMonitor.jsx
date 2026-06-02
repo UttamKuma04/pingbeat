@@ -158,7 +158,7 @@ function CreateMonitor({ editMode = false }) {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      <main className="max-w-2xl mx-auto px-4 py-12">
+      <main className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
         <div className="mb-6">
           <Link to="/" className="text-slate-600 hover:text-emerald-600 text-sm flex items-center space-x-2 transition-colors duration-200">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,7 +168,7 @@ function CreateMonitor({ editMode = false }) {
           </Link>
         </div>
 
-        <div className="glass-card p-8 bg-white border border-slate-200 rounded-xl shadow-sm">
+        <div className="glass-card p-5 bg-white border border-slate-200 rounded-xl shadow-sm sm:p-8">
           <h1 className="text-2xl font-bold text-slate-900 mb-6">
             {isEditing ? 'Edit Monitor' : 'Create New Monitor'}
           </h1>
@@ -355,7 +355,7 @@ function CreateMonitor({ editMode = false }) {
               </h3>
 
               <div className="space-y-4">
-                <div className="flex items-center space-x-3 bg-slate-50 p-4 border border-slate-200 rounded-lg">
+                <div className="flex items-start gap-3 bg-slate-50 p-4 border border-slate-200 rounded-lg sm:items-center">
                   <input
                     type="checkbox"
                     id="emailAlerts"
@@ -428,7 +428,7 @@ function CreateMonitor({ editMode = false }) {
             </div>
 
             {isEditing && (
-              <div className="flex items-center space-x-3 bg-slate-50 p-4 border border-slate-200 rounded-lg">
+            <div className="flex items-start gap-3 bg-slate-50 p-4 border border-slate-200 rounded-lg sm:items-center">
                 <input
                   type="checkbox"
                   id="isActive"
@@ -442,17 +442,17 @@ function CreateMonitor({ editMode = false }) {
               </div>
             )}
 
-            <div className="flex items-center space-x-4 pt-4 border-t border-slate-200">
+            <div className="flex flex-col gap-3 pt-4 border-t border-slate-200 sm:flex-row sm:items-center">
               <button
                 type="submit"
                 disabled={loading || isMonitorLimitReached}
-                className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-[1.01] hover:shadow-lg hover:shadow-emerald-600/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm"
+                className="w-full flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-[1.01] hover:shadow-lg hover:shadow-emerald-600/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm"
               >
                 {loading ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Monitor'}
               </button>
               <Link
                 to="/"
-                className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-all duration-200 text-sm"
+                className="w-full px-6 py-3 bg-slate-100 hover:bg-slate-200 text-center text-slate-700 font-semibold rounded-lg transition-all duration-200 text-sm sm:w-auto"
               >
                 Cancel
               </Link>

@@ -293,7 +293,7 @@ function StatusPageManager() {
                   />
                 </div>
 
-                <div className="flex items-center space-x-3 bg-slate-50 p-4 border border-slate-200 rounded-lg">
+                <div className="flex items-start gap-3 bg-slate-50 p-4 border border-slate-200 rounded-lg sm:items-center">
                   <input
                     type="checkbox"
                     id="isPublic"

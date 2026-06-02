@@ -291,9 +291,9 @@ function ApmSdkDocs() {
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
-        <div className="flex h-14 items-center justify-between px-4 lg:px-6">
+        <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
           <BrandLogo to={isAuthenticated ? '/dashboard' : '/'} />
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex shrink-0 items-center gap-2 text-sm">
             <Link to={isAuthenticated ? '/apm' : '/login'} className="font-semibold text-slate-600 hover:text-slate-950">
               {isAuthenticated ? 'Open APM' : 'Sign in'}
             </Link>
@@ -306,7 +306,7 @@ function ApmSdkDocs() {
         </div>
       </header>
 
-      <div className="grid min-h-[calc(100vh-3.5rem)] grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_minmax(360px,42vw)]">
+      <div className="grid min-h-[calc(100vh-3.5rem)] grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_minmax(320px,36vw)]">
         <aside className="hidden border-r border-slate-200 bg-slate-50 lg:block">
           <div className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto px-5 py-6">
             <p className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">APM SDK</p>
@@ -433,7 +433,7 @@ function ApmSdkDocs() {
           </DocSection>
         </main>
 
-        <aside className="border-t border-slate-800 bg-slate-950 text-slate-100 lg:border-l lg:border-t-0">
+        <aside className="border-t border-slate-800 bg-slate-950 text-slate-100 lg:col-start-2 xl:col-start-auto xl:border-l xl:border-t-0">
           <div className="sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto">
             <div className="border-b border-slate-800 px-5 py-4">
               <div className="mb-4 flex flex-wrap gap-2">

@@ -255,7 +255,7 @@ function AboutPage() {
 
       {/* ── Nav ── */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
           <BrandLogo to={isAuthenticated ? '/dashboard' : '/'} />
           <div className="hidden md:flex items-center space-x-6 text-sm">
             <Link to="/" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Home</Link>
@@ -264,22 +264,22 @@ function AboutPage() {
             <a href="#faq" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">FAQ</a>
           </div>
           {isAuthenticated ? (
-            <Link to="/dashboard" className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-md">Dashboard</Link>
+            <Link to="/dashboard" className="shrink-0 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-md">Dashboard</Link>
           ) : (
-            <Link to="/login" className="px-4 py-2 text-sm font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-all">Sign In</Link>
+            <Link to="/login" className="shrink-0 px-4 py-2 text-sm font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-all">Sign In</Link>
           )}
         </div>
       </nav>
 
       {/* ── Hero ── */}
       <header className="border-b border-slate-200 bg-white">
-        <div className="max-w-7xl mx-auto px-6 py-20">
+        <div className="max-w-7xl mx-auto px-4 py-14 sm:px-6 sm:py-20">
           <Reveal>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-600 mb-4">About PingBEAT</p>
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-950 leading-tight mb-6 max-w-4xl">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-slate-950 leading-tight mb-6 max-w-4xl">
               Uptime monitoring built for operators who need evidence, not estimates.
             </h1>
-            <p className="text-lg text-slate-600 leading-relaxed max-w-3xl mb-8">
+            <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-3xl mb-8">
               PingBEAT is a self-hosted monitoring platform that gives developers and infrastructure teams the tools to understand whether services are available, responsive, secure, and worth trusting — all from infrastructure they control.
             </p>
             <div className="flex flex-wrap gap-4">
@@ -532,7 +532,7 @@ function AboutPage() {
                     <p className="text-xs text-slate-500 mt-1">{m.description}</p>
                   </div>
                   <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
-                    <p className="font-mono text-xs text-slate-600 leading-relaxed">{m.fields}</p>
+                    <p className="break-anywhere font-mono text-xs text-slate-600 leading-relaxed">{m.fields}</p>
                   </div>
                 </div>
               </Reveal>

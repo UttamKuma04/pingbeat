@@ -119,32 +119,36 @@ function Navbar() {
     navigate('/login')
   }
 
-  const sidebar = (
-    <aside className={`${sidebarWidth} flex h-full flex-col border-r border-slate-200 bg-white shadow-sm transition-all duration-200`}>
+  function renderSidebar(forceExpanded = false) {
+    const collapsed = forceExpanded ? false : isCollapsed
+    const widthClass = forceExpanded ? 'w-full' : `w-full ${sidebarWidth}`
+
+    return (
+    <aside className={`${widthClass} flex h-full flex-col border-r border-slate-200 bg-white shadow-sm transition-all duration-200`}>
       <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-4">
-        <BrandLogo to="/dashboard" showText={!isCollapsed} className="min-w-0" />
+        <BrandLogo to="/dashboard" showText={!collapsed} className="min-w-0" />
       </div>
 
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
         {sections.map((section) => (
           <div key={section.label}>
-            {!isCollapsed && <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">{section.label}</p>}
+            {!collapsed && <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">{section.label}</p>}
             <div className="space-y-1">
               {section.items.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
                   end={item.end}
-                  title={isCollapsed ? item.label : undefined}
+                  title={collapsed ? item.label : undefined}
                   className={({ isActive }) => `group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
                     isActive
                       ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
-                  } ${isCollapsed ? 'justify-center' : ''}`}
+                  } ${collapsed ? 'justify-center' : ''}`}
                 >
                   <Icon name={item.icon} className="h-5 w-5 shrink-0" />
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
-                  {!isCollapsed && item.badge && (
+                  {!collapsed && <span className="truncate">{item.label}</span>}
+                  {!collapsed && item.badge && (
                     <span className="ml-auto rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">{item.badge}</span>
                   )}
                 </NavLink>
@@ -158,23 +162,23 @@ function Navbar() {
         <button
           type="button"
           onClick={() => setIsCollapsed((value) => !value)}
-          className={`mb-3 hidden w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 lg:flex ${isCollapsed ? 'justify-center' : ''}`}
+          className={`mb-3 hidden w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 lg:flex ${collapsed ? 'justify-center' : ''}`}
         >
-          <Icon name="collapse" className={`h-5 w-5 transition ${isCollapsed ? 'rotate-180' : ''}`} />
-          {!isCollapsed && <span>Collapse</span>}
+          <Icon name="collapse" className={`h-5 w-5 transition ${collapsed ? 'rotate-180' : ''}`} />
+          {!collapsed && <span>Collapse</span>}
         </button>
 
         <div ref={userMenuRef} className="relative">
           <button
             type="button"
             onClick={() => setIsUserMenuOpen((open) => !open)}
-            className={`flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:bg-white ${isCollapsed ? 'justify-center' : ''}`}
+            className={`flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:bg-white ${collapsed ? 'justify-center' : ''}`}
             aria-label="User menu"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-cyan-600 text-sm font-bold text-white">
               {avatarInitial}
             </span>
-            {!isCollapsed && (
+            {!collapsed && (
               <span className="min-w-0">
                 <span className="block truncate text-sm font-bold text-slate-800">{username || 'User'}</span>
                 <span className="block truncate text-xs text-slate-500">{email || 'Workspace admin'}</span>
@@ -192,24 +196,25 @@ function Navbar() {
         </div>
       </div>
     </aside>
-  )
+    )
+  }
 
   return (
     <>
       <div className={shellClass} />
       <div className={`fixed inset-y-0 left-0 z-50 hidden ${sidebarWidth} lg:block`}>
-        {sidebar}
+        {renderSidebar()}
       </div>
       {mobileOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)}>
           <div className="h-full w-72" onClick={(event) => event.stopPropagation()}>
-            {sidebar}
+            {renderSidebar(true)}
           </div>
         </div>
       )}
 
       <header className="fixed left-0 right-0 top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-xl lg:left-64 lg:pinbeat-topbar">
-        <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
+        <div className="flex h-16 min-w-0 items-center gap-2 px-3 sm:gap-3 sm:px-6">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
@@ -221,7 +226,7 @@ function Navbar() {
           <div className="hidden min-w-0 flex-1 md:block">
             <Breadcrumb />
           </div>
-          <div className="flex flex-1 items-center justify-end gap-3">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-3">
             <div className="hidden w-full max-w-sm sm:block">
               <GlobalSearch />
             </div>

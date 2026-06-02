@@ -63,7 +63,7 @@ function LiveStatusBadge({ isUp, isActive, statusChangedAt, status, separateDura
     if (!separateDuration || !durationStr) return null
 
     return (
-      <span className={`w-24 text-left text-xs font-mono font-semibold tabular-nums ${colorClass}`}>
+      <span className={`text-left text-xs font-mono font-semibold tabular-nums ${colorClass}`}>
         {durationStr}
       </span>
     )
@@ -71,7 +71,7 @@ function LiveStatusBadge({ isUp, isActive, statusChangedAt, status, separateDura
 
   if (isUp === true) {
     const statusPill = (
-      <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 whitespace-nowrap ${separateDuration ? 'w-36 justify-center' : ''}`}>
+      <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 whitespace-nowrap ${separateDuration ? 'min-w-32 justify-center' : ''}`}>
         <span className="w-2 h-2 bg-emerald-500 rounded-full pulse-green"></span>
         <span>{separateDuration ? 'UP Running' : `UP ${durationStr ? `for ${durationStr}` : ''}`}</span>
       </span>
@@ -79,7 +79,7 @@ function LiveStatusBadge({ isUp, isActive, statusChangedAt, status, separateDura
 
     if (separateDuration) {
       return (
-        <span className="inline-grid w-[25rem] grid-cols-[11rem_7rem] items-center gap-14">
+        <span className="inline-flex max-w-full flex-wrap items-center gap-2 sm:flex-nowrap">
           {statusPill}
           {renderDurationText('text-emerald-600')}
         </span>
@@ -91,7 +91,7 @@ function LiveStatusBadge({ isUp, isActive, statusChangedAt, status, separateDura
 
   if (isUp === false) {
     const statusPill = (
-      <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-600 border border-red-250 whitespace-nowrap ${separateDuration ? 'w-36 justify-center' : ''}`}>
+      <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-600 border border-red-250 whitespace-nowrap ${separateDuration ? 'min-w-32 justify-center' : ''}`}>
         <span className="w-2 h-2 bg-red-500 rounded-full pulse-red"></span>
         <span>{separateDuration ? 'DOWN Running' : `DOWN ${durationStr ? `for ${durationStr}` : ''}`}</span>
       </span>
@@ -99,7 +99,7 @@ function LiveStatusBadge({ isUp, isActive, statusChangedAt, status, separateDura
 
     if (separateDuration) {
       return (
-        <span className="inline-grid w-[25rem] grid-cols-[11rem_7rem] items-center gap-14">
+        <span className="inline-flex max-w-full flex-wrap items-center gap-2 sm:flex-nowrap">
           {statusPill}
           {renderDurationText('text-red-600')}
         </span>

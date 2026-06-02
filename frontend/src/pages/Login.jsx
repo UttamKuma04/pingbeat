@@ -37,7 +37,7 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-slate-50">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-slate-50">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl"></div>
@@ -54,7 +54,7 @@ function Login() {
         </div>
 
         {/* Card */}
-        <div className="glass-card p-8">
+        <div className="glass-card p-5 sm:p-8">
           <h2 className="text-xl font-semibold text-slate-800 mb-6 text-center">
             Welcome back
           </h2>

@@ -501,7 +501,7 @@ function LandingPage() {
 
       {/* ── Nav ── */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
           <BrandLogo to="/" />
           <div className="hidden md:flex items-center space-x-6 text-sm">
             <a href="#features" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Features</a>
@@ -510,13 +510,13 @@ function LandingPage() {
             <a href="#compare" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Compare</a>
             <Link to="/about" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">About</Link>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {isAuthenticated ? (
               <Link to="/dashboard" className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-md rounded-lg">Go to Dashboard</Link>
             ) : (
               <>
-                <Link to="/login" className="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium">Sign In</Link>
-                <Link to="/register" className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-md">Get Started Free</Link>
+                <Link to="/login" className="hidden text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium sm:inline">Sign In</Link>
+                <Link to="/register" className="px-3 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-md sm:px-4">Get Started</Link>
               </>
             )}
           </div>
@@ -525,17 +525,17 @@ function LandingPage() {
 
       {/* ── Hero ── */}
       <header className="border-b border-slate-200 bg-white overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 py-20 grid grid-cols-1 lg:grid-cols-[1fr_480px] gap-16 items-center">
+        <div className="max-w-7xl mx-auto px-4 py-14 grid grid-cols-1 gap-10 items-center sm:px-6 sm:py-20 lg:grid-cols-[1fr_minmax(320px,480px)] lg:gap-16">
           <Reveal>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 mb-6 uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               Self-hosted uptime monitoring
             </div>
-            <h1 className="text-4xl md:text-6xl font-extrabold text-slate-950 tracking-tight leading-[1.1] mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-6xl font-extrabold text-slate-950 tracking-tight leading-[1.1] mb-6">
               Know when your services go down.{' '}
               <span className="bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">Before your users do.</span>
             </h1>
-            <p className="text-lg md:text-xl text-slate-600 max-w-2xl mb-8 leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-slate-600 max-w-2xl mb-8 leading-relaxed">
               PingBEAT monitors websites and APIs around the clock, tracks SSL certificates, records every incident, schedules maintenance windows, and routes alerts to the channels your team already watches — all from infrastructure you control.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -625,7 +625,7 @@ function LandingPage() {
         <ObservabilityStats />
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-10 items-start">
           <div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {[
                 ['SLA Windows','24h, 7d, 30d uptime percentages with color-coded health'],
                 ['Latency Stats','Average, min, max response time over the last 24 hours'],
@@ -668,7 +668,7 @@ function LandingPage() {
       {/* ── Incident management ── */}
       <section className="py-24 bg-slate-50 border-y border-slate-200">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[480px_1fr] gap-14 items-start">
+          <div className="grid grid-cols-1 gap-10 items-start lg:grid-cols-[minmax(320px,480px)_1fr] lg:gap-14">
             <Reveal>
               <IncidentCard />
             </Reveal>
@@ -702,7 +702,7 @@ function LandingPage() {
 
       {/* ── Status pages ── */}
       <section className="py-24 max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_460px] gap-14 items-start">
+        <div className="grid grid-cols-1 gap-10 items-start lg:grid-cols-[1fr_minmax(320px,460px)] lg:gap-14">
           <div>
             <SectionHeader
               eyebrow="Status Pages"
@@ -736,7 +736,7 @@ function LandingPage() {
       {/* ── SSL ── */}
       <section className="py-24 bg-white border-y border-slate-200">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[460px_1fr] gap-14 items-start">
+          <div className="grid grid-cols-1 gap-10 items-start lg:grid-cols-[minmax(320px,460px)_1fr] lg:gap-14">
             <Reveal>
               <SSLTracker />
             </Reveal>
@@ -746,7 +746,7 @@ function LandingPage() {
                 title="Never get caught by an expired certificate"
                 subtitle="PingBEAT captures SSL certificate metadata on every single check — expiry date, issuer, and remaining days — and surfaces warnings before they become incidents."
               />
-              <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="grid grid-cols-1 gap-4 mt-4 sm:grid-cols-2">
                 {[
                   ['Automatic capture','SSL state recorded on every check with no extra configuration required.'],
                   ['Expiry warnings','Visual warning banners appear on monitor detail pages when certs are close to expiring.'],
@@ -766,7 +766,7 @@ function LandingPage() {
 
       {/* ── Alert channels ── */}
       <section className="py-24 max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-14 items-start">
+        <div className="grid grid-cols-1 gap-10 items-start lg:grid-cols-[1fr_minmax(300px,400px)] lg:gap-14">
           <div>
             <SectionHeader
               eyebrow="Alerting"
