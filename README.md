@@ -68,7 +68,7 @@ flowchart LR
 3. A Celery worker picks up the task, reads active monitors from PostgreSQL, and checks each due monitor.
 4. The worker sends HTTP requests to the monitored URL, checks status code, response time, keyword assertions, SSL expiry, and maintenance windows.
 5. Results are saved as `MonitorLog` rows. Downtime/recovery transitions create or resolve `Incident` rows.
-6. If alerts are enabled, the worker sends email or webhook notifications.
+6. If alerts are enabled, email/webhook notifications are queued through Redis and sent by Celery workers.
 7. The frontend later reads these saved results through the Django API.
 
 ## Quick Start (Docker)
@@ -134,6 +134,8 @@ python manage.py runserver
 ```
 
 ### Celery (in separate terminals)
+
+Celery workers are required for monitor alert emails and registration confirmation emails.
 
 ```bash
 # Worker

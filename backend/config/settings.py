@@ -122,6 +122,11 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
+GOOGLE_CLIENT_ID = os.environ.get(
+    'GOOGLE_CLIENT_ID',
+    '1091250855625-00rf2erbba7u9acaeapknl82p890jst4.apps.googleusercontent.com'
+)
+
 
 CORS_ALLOW_ALL_ORIGINS = True
 

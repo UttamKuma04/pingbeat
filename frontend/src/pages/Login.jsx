@@ -1,30 +1,55 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
+import GoogleLoginButton from '../components/GoogleLoginButton'
 import { login } from '../services/api'
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 function Login() {
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
+  function saveTokens(data) {
+    const accessToken = data.access || data.tokens?.access
+    const refreshToken = data.refresh || data.tokens?.refresh
+
+    localStorage.setItem('access_token', accessToken)
+    localStorage.setItem('refresh_token', refreshToken)
+  }
+
+  function handleAuthSuccess(data) {
+    saveTokens(data)
+    navigate('/dashboard', { replace: true })
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      setError('Please enter a valid email address.')
+      return
+    }
+
     setLoading(true)
 
     try {
-      const res = await login(username, password)
-      localStorage.setItem('access_token', res.data.access)
-      localStorage.setItem('refresh_token', res.data.refresh)
+      const res = await login(normalizedEmail, password)
+      saveTokens(res.data)
       navigate('/dashboard', { replace: true })
     } catch (err) {
       if (err.response && err.response.data) {
         const data = err.response.data
         if (data.detail) {
           setError(data.detail)
+        } else if (data.email) {
+          setError(Array.isArray(data.email) ? data.email.join(' ') : data.email)
         } else {
           setError('Invalid credentials. Please try again.')
         }
@@ -68,15 +93,16 @@ function Login() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Username
+                Email
               </label>
               <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 shadow-sm"
-                placeholder="Enter your username"
+                placeholder="you@example.com"
               />
             </div>
 
@@ -89,6 +115,7 @@ function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 shadow-sm"
                 placeholder="Enter your password"
               />
@@ -112,6 +139,14 @@ function Login() {
               )}
             </button>
           </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">or</span>
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+
+          <GoogleLoginButton onSuccess={handleAuthSuccess} onError={setError} text="signin_with" />
 
           <div className="mt-6 text-center">
             <p className="text-slate-600 text-sm">

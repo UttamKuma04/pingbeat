@@ -235,8 +235,6 @@ function CreateMonitor({ editMode = false }) {
                   onChange={(e) => setIntervalSeconds(e.target.value)}
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-800 transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 shadow-sm"
                 >
-                  <option value={30}>30 seconds</option>
-                  <option value={60}>1 minute</option>
                   <option value={300}>5 minutes</option>
                   <option value={600}>10 minutes</option>
                   <option value={1800}>30 minutes</option>

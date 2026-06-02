@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
+import GoogleLoginButton from '../components/GoogleLoginButton'
 import { register } from '../services/api'
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 function Register() {
-  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [password2, setPassword2] = useState('')
@@ -12,9 +14,29 @@ function Register() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
+  function saveTokens(data) {
+    const accessToken = data.access || data.tokens?.access
+    const refreshToken = data.refresh || data.tokens?.refresh
+
+    localStorage.setItem('access_token', accessToken)
+    localStorage.setItem('refresh_token', refreshToken)
+  }
+
+  function handleAuthSuccess(data) {
+    saveTokens(data)
+    navigate('/dashboard', { replace: true })
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      setError('Please enter a valid email address.')
+      return
+    }
 
     if (password !== password2) {
       setError('Passwords do not match.')
@@ -24,9 +46,8 @@ function Register() {
     setLoading(true)
 
     try {
-      const res = await register(username, email, password, password2)
-      localStorage.setItem('access_token', res.data.tokens.access)
-      localStorage.setItem('refresh_token', res.data.tokens.refresh)
+      const res = await register(normalizedEmail, password, password2)
+      saveTokens(res.data)
       navigate('/dashboard', { replace: true })
     } catch (err) {
       if (err.response && err.response.data) {
@@ -81,20 +102,6 @@ function Register() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Username
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 shadow-sm"
-                placeholder="Choose a username"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Email
               </label>
               <input
@@ -102,6 +109,7 @@ function Register() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 shadow-sm"
                 placeholder="you@example.com"
               />
@@ -116,6 +124,7 @@ function Register() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="new-password"
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 shadow-sm"
                 placeholder="Create a password"
               />
@@ -130,6 +139,7 @@ function Register() {
                 value={password2}
                 onChange={(e) => setPassword2(e.target.value)}
                 required
+                autoComplete="new-password"
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 shadow-sm"
                 placeholder="Confirm your password"
               />
@@ -153,6 +163,14 @@ function Register() {
               )}
             </button>
           </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">or</span>
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+
+          <GoogleLoginButton onSuccess={handleAuthSuccess} onError={setError} text="signup_with" />
 
           <div className="mt-6 text-center">
             <p className="text-slate-600 text-sm">

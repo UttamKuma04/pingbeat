@@ -27,6 +27,7 @@ PinBEAT/
 │   │   └── urls.py          # Primary api router configuration
 │   ├── accounts/            # User authentication & registration app
 │   │   ├── serializers.py   # Register & Profile serializers
+│   │   ├── tasks.py         # Celery registration confirmation email task
 │   │   ├── urls.py          # Auth endpoints (login, register, logout, me, refresh)
 │   │   └── views.py         # Registration & Profile API endpoints
 │   ├── monitoring/          # Core monitoring logic
@@ -109,7 +110,7 @@ Stores minute-level APM rollups used by dashboard APIs.
 
 ## ⚡ Background Tasks (Celery & Celery Beat)
 
-All background jobs are defined in `backend/monitoring/tasks.py`:
+Background jobs are defined in `backend/monitoring/tasks.py` and `backend/accounts/tasks.py`:
 
 1. **`check_monitors()`**
    - Scheduled via Celery Beat to run **every 30 seconds**.
@@ -117,14 +118,17 @@ All background jobs are defined in `backend/monitoring/tasks.py`:
 2. **`send_monitor_alert(monitor_id, previous_is_up, is_up, error_message)`**
    - Dispatched asynchronously on status changes.
    - Formats content and sends notifications to the configured channel: Email (via Brevo SMTP or console fallback), Slack (Incoming Webhooks), Discord (Incoming Webhooks), or Custom Webhook endpoints.
-3. **`cleanup_old_logs(days_to_keep=30)`**
+3. **`send_registration_confirmation_email(user_id)`**
+   - Dispatched asynchronously after normal registration and first-time Google sign-up.
+   - Sends the account confirmation email from a Celery worker via Brevo API when configured, with Django email backend fallback.
+4. **`cleanup_old_logs(days_to_keep=30)`**
    - Scheduled via Celery Beat to run **daily at midnight**.
    - Deletes logs older than 30 days to avoid db bloat.
-4. **`process_apm_metrics(application_id, metrics)`**
+5. **`process_apm_metrics(application_id, metrics)`**
    - Persists SDK metric batches using `bulk_create`.
    - Called asynchronously through Celery in production-style mode.
    - Can be called synchronously in local `DEBUG=True` mode through `PINGBEAT_APM_SYNC_INGEST`.
-5. **`aggregate_apm_metrics(minutes_back=10)`**
+6. **`aggregate_apm_metrics(minutes_back=10)`**
    - Scheduled via Celery Beat to run **every 60 seconds**.
    - Aggregates raw `ApiMetric` rows into `ApiMetricSummary` minute buckets.
    - Calculates request count, average response time, P95 latency, P99 latency, and 4xx/5xx error rate.
@@ -149,7 +153,8 @@ All background jobs are defined in `backend/monitoring/tasks.py`:
 | Method | Endpoint | Description | Auth Required |
 |---|---|---|---|
 | `POST` | `/api/register/` | Register new user + return JWT | No |
-| `POST` | `/api/login/` | Login (get access + refresh tokens) | No |
+| `POST` | `/api/login/` | Login with email + password (get access + refresh tokens) | No |
+| `POST` | `/api/google-login/` | Validate a Google ID token, create/reuse the email user, and return JWT | No |
 | `POST` | `/api/token/refresh/` | Refresh JWT access token | No |
 | `POST` | `/api/logout/` | Blacklist refresh token | Yes |
 | `GET` | `/api/me/` | Current user profile details | Yes |
@@ -239,6 +244,9 @@ Located under `frontend/src/pages/`:
 
 ## Recent Maintenance Notes
 
+- Updated authentication so new registrations use the email address as the Django `username`/user id. Login now accepts an `email` field instead of a separate username, and both register/login validate email format on the frontend and backend.
+- Added Google sign-in/sign-up buttons on `Login.jsx` and `Register.jsx` using Google Identity Services with client id `1091250855625-00rf2erbba7u9acaeapknl82p890jst4.apps.googleusercontent.com`. Backend endpoint `/api/google-login/` verifies the ID token audience/email before issuing the existing JWT token pair.
+- Successful account creation now queues `accounts.tasks.send_registration_confirmation_email` through Redis/Celery to send a confirmation email to the user's email address. The task uses Brevo API when `BREVO_API_KEY` and `BREVO_SENDER_EMAIL` are configured, with Django email backend fallback.
 - Added Application Performance Monitoring (APM) to PingBEAT using the existing `monitoring` Django app rather than introducing a new app.
 - Added APM models: `Application`, `ApiMetric`, and `ApiMetricSummary`, plus migration `0005_application_apimetricsummary_apimetric_and_more.py`.
 - Added APM serializers for application CRUD, raw/summary output, and SDK ingest payload validation with max batch size of 1000 metrics.

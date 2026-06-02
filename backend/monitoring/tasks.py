@@ -220,13 +220,14 @@ def send_monitor_alert(monitor_id, previous_is_up, is_up, error_message=''):
         user = monitor.user
 
         status_text = "UP" if is_up else "DOWN"
-        icon = "🟢" if is_up else "🔴"
         event_label = "Status Change Transition" if previous_is_up is not None else "Initial Status Check"
         
         if previous_is_up is None:
             status_text = "UP (Initial Check)" if is_up else "DOWN (Initial Outage)"
 
-        subject = f"[{icon} {status_text.upper()}] {monitor.name} is {status_text.split(' ')[0]}"
+        subject = f"{status_text.upper()} {monitor.name} is {status_text.split(' ')[0]}"
+        
+        # Plain text fallback
         body_text = (
             f"Hello {user.username},\n\n"
             f"Your service monitor '{monitor.name}' status update:\n\n"
@@ -238,6 +239,123 @@ def send_monitor_alert(monitor_id, previous_is_up, is_up, error_message=''):
             f"Best regards,\n"
             f"The PingBEAT Team"
         )
+
+        # HTML Email Template Setup
+        html_template = """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PingBEAT Alert</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7fb;padding:30px 0;">
+        <tr>
+            <td align="center">
+
+                <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+                    
+                    <tr>
+                        <td style="padding:30px;text-align:center;border-bottom:1px solid #e5e7eb;">
+                            <img src="https://www.pingbeat.in/logo.svg"
+                                 alt="PingBEAT"
+                                 height="42">
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding:35px 40px;">
+                            <h2 style="margin:0 0 20px;color:#111827;font-size:24px;font-weight:600;">
+                                Service Down Detected
+                            </h2>
+
+                            <p style="margin:0 0 24px;color:#4b5563;font-size:15px;line-height:24px;">
+                                PingBEAT has detected that one of your monitored services is currently unavailable.
+                            </p>
+
+                            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                                <tr>
+                                    <td style="padding:12px 0;color:#6b7280;font-size:14px;width:140px;">
+                                        Monitor
+                                    </td>
+                                    <td style="padding:12px 0;color:#111827;font-size:14px;font-weight:600;">
+                                        {{monitor_name}}
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="padding:12px 0;color:#6b7280;font-size:14px;">
+                                        URL
+                                    </td>
+                                    <td style="padding:12px 0;color:#111827;font-size:14px;">
+                                        {{monitor_url}}
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="padding:12px 0;color:#6b7280;font-size:14px;">
+                                        Status
+                                    </td>
+                                    <td style="padding:12px 0;">
+                                        <span style="display:inline-block;background:#fee2e2;color:#b91c1c;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;">
+                                            DOWN
+                                        </span>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="padding:12px 0;color:#6b7280;font-size:14px;">
+                                        Detected At
+                                    </td>
+                                    <td style="padding:12px 0;color:#111827;font-size:14px;">
+                                        {{timestamp}}
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="padding:12px 0;color:#6b7280;font-size:14px;vertical-align:top;">
+                                        Reason
+                                    </td>
+                                    <td style="padding:12px 0;color:#111827;font-size:14px;">
+                                        {{error_message}}
+                                    </td>
+                                </tr>
+                            </table>
+
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding:20px 40px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+                            <p style="margin:0;color:#6b7280;font-size:13px;line-height:20px;">
+                                You are receiving this notification because alerts are enabled for this monitor.
+                            </p>
+
+                            <p style="margin:10px 0 0;color:#9ca3af;font-size:12px;">
+                                © 2026 PingBEAT. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+
+            </td>
+        </tr>
+    </table>
+</body>
+</html>"""
+
+        # Inject dynamic data into the HTML safely
+        html_content = html_template.replace('{{monitor_name}}', monitor.name)
+        html_content = html_content.replace('{{monitor_url}}', monitor.url)
+        html_content = html_content.replace('{{timestamp}}', timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC'))
+        html_content = html_content.replace('{{error_message}}', error_message or 'No issues')
+
+        # Dynamically adjust HTML wording/colors if the service is UP (recovered)
+        if is_up:
+            html_content = html_content.replace('Service Down Detected', 'Service Recovery Detected')
+            html_content = html_content.replace('currently unavailable.', 'currently back online.')
+            html_content = html_content.replace('DOWN', 'UP')
+            html_content = html_content.replace('background:#fee2e2;color:#b91c1c;', 'background:#dcfce3;color:#166534;')
 
         # 1. Handle Webhooks (Discord, Slack, Custom Webhook)
         if monitor.webhook_url:
@@ -287,7 +405,8 @@ def send_monitor_alert(monitor_id, previous_is_up, is_up, error_message=''):
                     "sender": {"name": brevo_name, "email": brevo_email},
                     "to": [{"email": user.email, "name": user.username}],
                     "subject": subject,
-                    "textContent": body_text
+                    "textContent": body_text,
+                    "htmlContent": html_content # Applied custom HTML here
                 }
                 try:
                     response = http_requests.post(url, json=payload, headers=headers, timeout=10)
@@ -303,6 +422,7 @@ def send_monitor_alert(monitor_id, previous_is_up, is_up, error_message=''):
                 from_email=brevo_email or "alerts@pingbeat.com",
                 recipient_list=[user.email],
                 fail_silently=False,
+                html_message=html_content # Applied custom HTML here
             )
             return f"Email alert sent to {user.email} successfully via backup backend."
             

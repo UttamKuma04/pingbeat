@@ -10,6 +10,11 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 })
 
+export const GOOGLE_CLIENT_ID = (
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  '1091250855625-00rf2erbba7u9acaeapknl82p890jst4.apps.googleusercontent.com'
+)
+
 // Request interceptor - attach access token
 api.interceptors.request.use(
   (config) => {
@@ -59,12 +64,16 @@ api.interceptors.response.use(
 )
 
 // Auth
-export function login(username, password) {
-  return api.post('/login/', { username, password })
+export function login(email, password) {
+  return api.post('/login/', { email, password })
 }
 
-export function register(username, email, password, password2) {
-  return api.post('/register/', { username, email, password, password2 })
+export function register(email, password, password2) {
+  return api.post('/register/', { email, password, password2 })
+}
+
+export function loginWithGoogle(credential) {
+  return api.post('/google-login/', { credential })
 }
 
 export function getMe() {
