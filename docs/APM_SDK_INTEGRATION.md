@@ -58,7 +58,7 @@ The backend accepts batches up to 1000 metrics. For high-traffic services, buffe
 
 ## 4. Framework Recipes
 
-The in-app docs page at `/apm/docs` includes ready-to-copy snippets for:
+The public docs page at `/apm/doc` includes ready-to-copy snippets for:
 
 - Django middleware
 - FastAPI middleware

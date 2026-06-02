@@ -101,7 +101,7 @@ function Navbar() {
       items: [
         { to: '/analytics', label: 'Analytics', icon: 'analytics' },
         { to: '/apm', label: 'APM', icon: 'apm', end: true },
-        { to: '/apm/docs', label: 'SDK Docs', icon: 'docs' },
+        { to: '/apm/doc', label: 'SDK Docs', icon: 'docs' },
       ],
     },
     {

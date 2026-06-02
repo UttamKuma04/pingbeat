@@ -48,9 +48,10 @@ function App() {
           }
         />
         <Route
-          path="/apm/docs"
+          path="/apm/doc"
           element={<ApmSdkDocs />}
         />
+        <Route path="/apm/docs" element={<Navigate to="/apm/doc" replace />} />
         <Route
           path="/apm"
           element={
