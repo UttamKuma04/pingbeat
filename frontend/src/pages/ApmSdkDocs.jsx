@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
 
-const ingestUrl = 'https://pingbeat.in/api/apm/ingest/'
+const ingestUrl = 'https://api.pingbeat.in/api/apm/ingest/'
 
 const navSections = [
   ['introduction', 'Introduction'],
@@ -10,7 +10,6 @@ const navSections = [
   ['configuration', 'Configuration'],
   ['payload', 'Payload Format'],
   ['frameworks', 'Framework Setup'],
-  ['skip-paths', 'Skip Noisy Paths'],
   ['verify', 'Verify Integration'],
   ['troubleshooting', 'Troubleshooting'],
 ]
@@ -20,7 +19,7 @@ const examples = {
     label: 'cURL',
     install: 'No SDK required',
     setup: [
-      'curl -X POST "https://pingbeat.in/api/apm/ingest/" \\',
+      'curl -X POST "https://api.pingbeat.in/api/apm/ingest/" \\',
       '  -H "Content-Type: application/json" \\',
       "  -d '{",
       '    "api_key": "pb_your_api_key_here",',
@@ -40,218 +39,80 @@ const examples = {
     label: 'Django',
     install: 'pip install requests',
     setup: [
-      'import os',
-      'import time',
-      'from datetime import datetime, timezone',
-      'from threading import Thread',
+      '# 1. Initialize the SDK (e.g., in settings.py or wsgi.py)',
+      'import pingbeat_sdk as pingbeat',
       '',
-      'import requests',
+      'pingbeat.init(',
+      '    api_key="pb_your_api_key_here",',
+      '    ingest_url="https://api.pingbeat.in/api/apm/ingest/",',
+      ')',
       '',
-      '',
-      'def send_pingbeat_metric(metric):',
-      '    api_key = os.environ.get("PINGBEAT_APM_API_KEY")',
-      '    ingest_url = os.environ.get("PINGBEAT_APM_INGEST_URL")',
-      '    timeout = float(os.environ.get("PINGBEAT_APM_TIMEOUT_SECONDS", "3"))',
-      '',
-      '    if not api_key or not ingest_url:',
-      '        return',
-      '',
-      '    try:',
-      '        requests.post(',
-      '            ingest_url,',
-      '            json={"api_key": api_key, "metrics": [metric]},',
-      '            timeout=timeout,',
-      '        )',
-      '    except requests.RequestException:',
-      '        pass',
-      '',
-      '',
-      'class PingBeatAPMMiddleware:',
-      '    def __init__(self, get_response):',
-      '        self.get_response = get_response',
-      '',
-      '    def __call__(self, request):',
-      '        started = time.perf_counter()',
-      '        response = self.get_response(request)',
-      '        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)',
-      '',
-      '        Thread(',
-      '            target=send_pingbeat_metric,',
-      '            args=({',
-      '                "endpoint": request.path,',
-      '                "method": request.method,',
-      '                "status_code": response.status_code,',
-      '                "response_time_ms": elapsed_ms,',
-      '                "timestamp": datetime.now(timezone.utc).isoformat(),',
-      '            },),',
-      '            daemon=True,',
-      '        ).start()',
-      '',
-      '        return response',
-    ].join('\n'),
-    attach: [
+      '# 2. Add to MIDDLEWARE list in settings.py',
       'MIDDLEWARE = [',
-      '    "django.middleware.security.SecurityMiddleware",',
-      '    "django.contrib.sessions.middleware.SessionMiddleware",',
-      '    "your_project.pingbeat_apm.PingBeatAPMMiddleware",',
-      '    "django.middleware.common.CommonMiddleware",',
-      '    "django.middleware.csrf.CsrfViewMiddleware",',
-      '    "django.contrib.auth.middleware.AuthenticationMiddleware",',
+      '    "pingbeat_sdk.PingBeatDjangoMiddleware",',
+      '    # ... other middleware ...',
       ']',
     ].join('\n'),
   },
   fastapi: {
     label: 'FastAPI',
-    install: 'pip install httpx',
+    install: 'pip install requests',
     setup: [
-      'import os',
-      'import time',
-      'from datetime import datetime, timezone',
+      'from fastapi import FastAPI',
+      'import pingbeat_sdk as pingbeat',
       '',
-      'import httpx',
-      'from fastapi import FastAPI, Request',
+      'pingbeat.init(',
+      '    api_key="pb_your_api_key_here",',
+      '    ingest_url="https://api.pingbeat.in/api/apm/ingest/",',
+      ')',
       '',
       'app = FastAPI()',
+      'app.add_middleware(pingbeat.PingBeatFastAPIMiddleware)',
       '',
-      '',
-      'async def send_pingbeat_metric(metric):',
-      '    api_key = os.environ.get("PINGBEAT_APM_API_KEY")',
-      '    ingest_url = os.environ.get("PINGBEAT_APM_INGEST_URL")',
-      '    timeout = float(os.environ.get("PINGBEAT_APM_TIMEOUT_SECONDS", "3"))',
-      '',
-      '    if not api_key or not ingest_url:',
-      '        return',
-      '',
-      '    try:',
-      '        async with httpx.AsyncClient(timeout=timeout) as client:',
-      '            await client.post(',
-      '                ingest_url,',
-      '                json={"api_key": api_key, "metrics": [metric]},',
-      '            )',
-      '    except httpx.HTTPError:',
-      '        pass',
-      '',
-      '',
-      '@app.middleware("http")',
-      'async def pingbeat_apm_middleware(request: Request, call_next):',
-      '    started = time.perf_counter()',
-      '    response = await call_next(request)',
-      '',
-      '    await send_pingbeat_metric({',
-      '        "endpoint": request.url.path,',
-      '        "method": request.method,',
-      '        "status_code": response.status_code,',
-      '        "response_time_ms": round((time.perf_counter() - started) * 1000, 2),',
-      '        "timestamp": datetime.now(timezone.utc).isoformat(),',
-      '    })',
-      '',
-      '    return response',
+      '@app.get("/")',
+      'async def root():',
+      '    return {"status": "ok"}',
     ].join('\n'),
   },
   flask: {
     label: 'Flask',
     install: 'pip install requests',
     setup: [
-      'import os',
-      'import time',
-      'from datetime import datetime, timezone',
-      'from threading import Thread',
+      'from flask import Flask',
+      'import pingbeat_sdk as pingbeat',
       '',
-      'import requests',
-      'from flask import Flask, g, request',
+      'pingbeat.init(',
+      '    api_key="pb_your_api_key_here",',
+      '    ingest_url="https://api.pingbeat.in/api/apm/ingest/",',
+      ')',
       '',
       'app = Flask(__name__)',
-      '',
-      '',
-      '@app.before_request',
-      'def pingbeat_start():',
-      '    g.pingbeat_started = time.perf_counter()',
-      '',
-      '',
-      '@app.after_request',
-      'def pingbeat_finish(response):',
-      '    started = getattr(g, "pingbeat_started", None)',
-      '    if started is None:',
-      '        return response',
-      '',
-      '    metric = {',
-      '        "endpoint": request.path,',
-      '        "method": request.method,',
-      '        "status_code": response.status_code,',
-      '        "response_time_ms": round((time.perf_counter() - started) * 1000, 2),',
-      '        "timestamp": datetime.now(timezone.utc).isoformat(),',
-      '    }',
-      '',
-      '    Thread(target=send_pingbeat_metric, args=(metric,), daemon=True).start()',
-      '    return response',
-    ].join('\n'),
-    attach: [
-      'def send_pingbeat_metric(metric):',
-      '    api_key = os.environ.get("PINGBEAT_APM_API_KEY")',
-      '    ingest_url = os.environ.get("PINGBEAT_APM_INGEST_URL")',
-      '    if not api_key or not ingest_url:',
-      '        return',
-      '',
-      '    try:',
-      '        requests.post(',
-      '            ingest_url,',
-      '            json={"api_key": api_key, "metrics": [metric]},',
-      '            timeout=3,',
-      '        )',
-      '    except requests.RequestException:',
-      '        pass',
+      'pingbeat.pingbeat_flask_init(app)',
     ].join('\n'),
   },
   express: {
     label: 'Express',
-    install: 'Node.js 18+ or a fetch polyfill',
+    install: 'No npm dependencies required',
     setup: [
-      'function sendPingbeatMetric(metric) {',
-      '  const apiKey = process.env.PINGBEAT_APM_API_KEY',
-      '  const ingestUrl = process.env.PINGBEAT_APM_INGEST_URL',
-      '  const timeoutMs = Number(process.env.PINGBEAT_APM_TIMEOUT_SECONDS || 3) * 1000',
+      'const express = require("express");',
+      'const pingbeat = require("./pingbeat_sdk");',
       '',
-      '  if (!apiKey || !ingestUrl) return',
+      'pingbeat.init({',
+      '  apiKey: "pb_your_api_key_here",',
+      '  ingestUrl: "https://api.pingbeat.in/api/apm/ingest/",',
+      '});',
       '',
-      '  const controller = new AbortController()',
-      '  const timeout = setTimeout(() => controller.abort(), timeoutMs)',
-      '',
-      '  fetch(ingestUrl, {',
-      '    method: "POST",',
-      '    headers: { "Content-Type": "application/json" },',
-      '    body: JSON.stringify({ api_key: apiKey, metrics: [metric] }),',
-      '    signal: controller.signal,',
-      '  })',
-      '    .catch(() => undefined)',
-      '    .finally(() => clearTimeout(timeout))',
-      '}',
-      '',
-      'function pingbeatApm(req, res, next) {',
-      '  const started = process.hrtime.bigint()',
-      '',
-      '  res.on("finish", () => {',
-      '    const elapsedMs = Number(process.hrtime.bigint() - started) / 1_000_000',
-      '    sendPingbeatMetric({',
-      '      endpoint: req.route?.path || req.path,',
-      '      method: req.method,',
-      '      status_code: res.statusCode,',
-      '      response_time_ms: Math.round(elapsedMs * 100) / 100,',
-      '      timestamp: new Date().toISOString(),',
-      '    })',
-      '  })',
-      '',
-      '  next()',
-      '}',
-      '',
-      'app.use(pingbeatApm)',
+      'const app = express();',
+      'app.use(pingbeat.expressMiddleware());',
     ].join('\n'),
   },
 }
 
 const envBlock = [
+  '# The SDKs can be configured dynamically by parameters to init() or via env vars',
   'PINGBEAT_APM_API_KEY=pb_your_api_key_here',
   `PINGBEAT_APM_INGEST_URL=${ingestUrl}`,
-  'PINGBEAT_APM_TIMEOUT_SECONDS=3',
+  'PINGBEAT_APM_TIMEOUT_SECONDS=5',
 ].join('\n')
 
 const payloadBlock = [
@@ -263,18 +124,21 @@ const payloadBlock = [
   '      "method": "GET",',
   '      "status_code": 200,',
   '      "response_time_ms": 42.5,',
-  '      "timestamp": "2026-06-01T12:00:00+00:00"',
+  '      "timestamp": "2026-06-01T12:00:00.000Z"',
   '    }',
   '  ]',
   '}',
 ].join('\n')
 
 const skipBlock = [
-  'SKIP_PREFIXES = ("/health", "/static", "/favicon.ico", "/admin")',
-  '',
-  'if request.path.startswith(SKIP_PREFIXES):',
-  '    return response',
+  '# Pass the excluded_paths parameter to init() to ignore noisy requests',
+  'pingbeat.init(',
+  '    api_key="pb_xxx",',
+  '    ingest_url="...",',
+  '    excluded_paths=("/health", "/readyz", "/static", "/favicon.ico")',
+  ')',
 ].join('\n')
+
 
 function ApmSdkDocs() {
   const [activeExample, setActiveExample] = useState('curl')
@@ -391,23 +255,18 @@ function ApmSdkDocs() {
 
           <DocSection id="frameworks" title="Framework Setup">
             <p className="text-sm leading-6 text-slate-600">
-              Choose the matching example from the code panel. For unsupported frameworks, use the same pattern in request middleware: start timer before request handling, calculate elapsed time after response, then send the metric asynchronously.
+              Drop the single-file SDK (<code>pingbeat_sdk.py</code> or <code>pingbeat_sdk.js</code>) into your project, initialize it with your API key, and configure the framework integration as shown in the code panel.
             </p>
-            <h3 className="mt-6 text-base font-bold text-slate-950">Supported examples</h3>
+            <h3 className="mt-6 text-base font-bold text-slate-950">Supported frameworks</h3>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">
-              <li>Django middleware</li>
-              <li>FastAPI HTTP middleware</li>
-              <li>Flask before_request and after_request hooks</li>
-              <li>Express middleware</li>
-              <li>Generic HTTP ingestion for any framework</li>
+              <li>Django (using <code>PingBeatDjangoMiddleware</code>)</li>
+              <li>FastAPI (using <code>PingBeatFastAPIMiddleware</code>)</li>
+              <li>Flask (using <code>pingbeat_flask_init</code> helper)</li>
+              <li>Express (using <code>expressMiddleware()</code>)</li>
+              <li>Generic HTTP ingestion / cURL</li>
             </ul>
           </DocSection>
 
-          <DocSection id="skip-paths" title="Skip Noisy Paths">
-            <p className="text-sm leading-6 text-slate-600">
-              Health checks, static assets, admin routes, and internal polling paths can create low-value traffic. Add a skip list before sending the metric.
-            </p>
-          </DocSection>
 
           <DocSection id="verify" title="Verify Integration">
             <OrderedList

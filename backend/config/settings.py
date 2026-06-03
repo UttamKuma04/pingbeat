@@ -1,6 +1,4 @@
-"""
-Django settings for PingBEAT project.
-"""
+
 
 import os
 from pathlib import Path
@@ -15,7 +13,24 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-pingbeat-dev-key-chan
 
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ['*']
+_allowed_hosts = os.environ.get('ALLOWED_HOSTS')
+if _allowed_hosts:
+    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['*']
+
+_csrf_origins = os.environ.get('CSRF_TRUSTED_ORIGINS')
+if _csrf_origins:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(',') if o.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = []
+
+_cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS')
+if _cors_origins:
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()]
+    CORS_ALLOW_ALL_ORIGINS = False
+else:
+    CORS_ALLOW_ALL_ORIGINS = True
 
 
 
@@ -128,7 +143,8 @@ GOOGLE_CLIENT_ID = os.environ.get(
 )
 
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS configuration handled dynamically at the top of the file
+
 
 
 

@@ -208,3 +208,44 @@ class ApiMetricSummary(models.Model):
 
     def __str__(self):
         return f'{self.application.name} {self.endpoint} {self.minute_bucket}'
+
+
+from django.db.models.signals import post_migrate
+from django.dispatch import receiver
+
+@receiver(post_migrate)
+def setup_periodic_tasks(sender, **kwargs):
+    if sender.name != 'monitoring':
+        return
+    try:
+        from django_celery_beat.models import PeriodicTask, IntervalSchedule, CrontabSchedule
+        
+        schedule_30s, _ = IntervalSchedule.objects.get_or_create(every=30, period='seconds')
+        PeriodicTask.objects.get_or_create(
+            name='Check Monitors',
+            defaults={
+                'task': 'monitoring.tasks.check_monitors',
+                'interval': schedule_30s,
+            }
+        )
+
+        cron_midnight, _ = CrontabSchedule.objects.get_or_create(hour=0, minute=0)
+        PeriodicTask.objects.get_or_create(
+            name='Cleanup Old Logs',
+            defaults={
+                'task': 'monitoring.tasks.cleanup_old_logs',
+                'crontab': cron_midnight,
+            }
+        )
+
+        schedule_60s, _ = IntervalSchedule.objects.get_or_create(every=60, period='seconds')
+        PeriodicTask.objects.get_or_create(
+            name='Aggregate APM Metrics',
+            defaults={
+                'task': 'monitoring.tasks.aggregate_apm_metrics',
+                'interval': schedule_60s,
+            }
+        )
+    except Exception:
+        pass
+
