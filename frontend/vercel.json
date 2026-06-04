@@ -46,6 +46,14 @@
       "destination": "https://pingbeat-3.onrender.com/api/:path*"
     },
     {
+      "source": "/sitemap.xml",
+      "destination": "https://pingbeat-3.onrender.com/sitemap.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "https://pingbeat-3.onrender.com/robots.txt"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
