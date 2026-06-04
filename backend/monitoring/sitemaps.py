@@ -3,10 +3,6 @@ from django.utils import timezone
 from .models import StatusPage
 
 class BaseSitemap(Sitemap):
-    """
-    Base sitemap configuration ensuring all URLs are generated with 
-    HTTPS protocol and the canonical pingbeat.in domain.
-    """
     protocol = 'https'
 
     def get_domain(self, site=None):
@@ -14,42 +10,59 @@ class BaseSitemap(Sitemap):
 
 
 class StaticSitemap(BaseSitemap):
-    """
-    Sitemap for public, static React frontend routes.
-    Paths are managed explicitly since the frontend routes are separate from Django views.
-    """
     def items(self):
-        return ['/', '/about', '/apm/doc']
+        return [
+            '/',
+            '/about',
+            '/apm/doc',
+            # Comparison hub
+            '/compare',
+            # Tier-1 uptime monitor comparison pages
+            '/compare/pingbeat-vs-uptimerobot',
+            '/compare/pingbeat-vs-pingdom',
+            '/compare/pingbeat-vs-better-stack',
+            '/compare/pingbeat-vs-statuscake',
+            '/compare/pingbeat-vs-site24x7',
+            '/compare/pingbeat-vs-checkly',
+            '/compare/pingbeat-vs-freshping',
+            '/compare/pingbeat-vs-hyperping',
+            # Tier-2 APM / observability comparison pages
+            '/compare/pingbeat-vs-signoz',
+            '/compare/pingbeat-vs-sentry',
+            '/compare/pingbeat-vs-netdata',
+            '/compare/pingbeat-vs-datadog',
+        ]
 
     def location(self, item):
         return item
 
     def priority(self, item):
+        if item == '/':
+            return 1.0
+        if item.startswith('/compare/pingbeat-vs-'):
+            return 0.9
         priorities = {
-            '/': 1.0,
             '/about': 0.8,
-            '/apm/doc': 0.7
+            '/apm/doc': 0.7,
+            '/compare': 0.8,
         }
         return priorities.get(item, 0.5)
 
     def changefreq(self, item):
+        if item.startswith('/compare/'):
+            return 'weekly'
         freqs = {
             '/': 'weekly',
             '/about': 'monthly',
-            '/apm/doc': 'monthly'
+            '/apm/doc': 'monthly',
         }
         return freqs.get(item, 'weekly')
 
     def lastmod(self, item):
-        # Fallback to current date/time for static pages
         return timezone.now()
 
 
 class PublicStatusPageSitemap(BaseSitemap):
-    """
-    Sitemap for dynamically-created public Status Pages.
-    Automatically excludes private status pages and uses database updates.
-    """
     changefreq = 'daily'
     priority = 0.6
 
@@ -63,7 +76,6 @@ class PublicStatusPageSitemap(BaseSitemap):
         return item.created_at
 
 
-# Sitemap registry to be passed to Django's sitemap view
 sitemaps = {
     'static': StaticSitemap,
     'status_pages': PublicStatusPageSitemap,

@@ -15,6 +15,8 @@ import LogsExplorer from './pages/LogsExplorer'
 import SettingsPage from './pages/SettingsPage'
 import LandingPage from './pages/LandingPage'
 import AboutPage from './pages/AboutPage'
+import ComparePage from './pages/ComparePage'
+import CompareHubPage from './pages/CompareHubPage'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -27,6 +29,9 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/status/:slug" element={<StatusPage />} />
         <Route path="/about" element={<AboutPage />} />
+        {/* SEO: Comparison pages — highest-intent traffic */}
+        <Route path="/compare" element={<CompareHubPage />} />
+        <Route path="/compare/pingbeat-vs-:slug" element={<ComparePage />} />
         <Route
           path="/"
           element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />}

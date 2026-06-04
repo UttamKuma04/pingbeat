@@ -252,8 +252,10 @@ function AboutPage() {
         title="About PingBEAT — Self-Hosted Uptime Monitoring Platform"
         description="Understand why PingBEAT was built and explore our unified self-hosted features: uptime checks, SSL tracking, incident timeline logs, and APM SDK metrics."
         canonical="https://pingbeat.in/about"
+        keywords="about PingBEAT, self-hosted monitoring platform, open source uptime monitoring, uptime monitoring alternative, UptimeRobot alternative, Pingdom alternative, self-hosted APM, website monitoring open source, PingBEAT features, monitoring without vendor lock-in"
         jsonLd={combinedSchema}
       />
+
 
       {/* ── Nav ── */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-sm" role="navigation" aria-label="Main Navigation">
@@ -606,9 +608,9 @@ function AboutPage() {
       {/* ── Footer ── */}
       <footer className="mt-auto border-t border-slate-200 bg-white pt-16 pb-12 font-sans">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-12 border-b border-slate-200">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 pb-12 border-b border-slate-200">
             {/* Branding Column */}
-            <div className="md:col-span-1 space-y-4">
+            <div className="col-span-2 md:col-span-1 space-y-4">
               <div className="flex items-center gap-3">
                 <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                 <span className="text-lg font-bold text-slate-900 tracking-tight">PingBEAT</span>
@@ -626,6 +628,19 @@ function AboutPage() {
                 <li><a href="/#how-it-works" className="text-slate-500 hover:text-emerald-600 transition-colors">How It Works</a></li>
                 <li><a href="/#observability" className="text-slate-500 hover:text-emerald-600 transition-colors">Observability</a></li>
                 <li><a href="/#compare" className="text-slate-500 hover:text-emerald-600 transition-colors">Compare Features</a></li>
+              </ul>
+            </div>
+
+            {/* Compare Links */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest mb-4">Compare</h4>
+              <ul className="space-y-2.5 text-sm">
+                <li><Link to="/compare/pingbeat-vs-uptimerobot" className="text-slate-500 hover:text-emerald-600 transition-colors">vs UptimeRobot</Link></li>
+                <li><Link to="/compare/pingbeat-vs-pingdom" className="text-slate-500 hover:text-emerald-600 transition-colors">vs Pingdom</Link></li>
+                <li><Link to="/compare/pingbeat-vs-better-stack" className="text-slate-500 hover:text-emerald-600 transition-colors">vs Better Stack</Link></li>
+                <li><Link to="/compare/pingbeat-vs-datadog" className="text-slate-500 hover:text-emerald-600 transition-colors">vs Datadog</Link></li>
+                <li><Link to="/compare/pingbeat-vs-signoz" className="text-slate-500 hover:text-emerald-600 transition-colors">vs SigNoz</Link></li>
+                <li><Link to="/compare" className="text-slate-500 hover:text-emerald-600 transition-colors font-medium">All comparisons →</Link></li>
               </ul>
             </div>
 

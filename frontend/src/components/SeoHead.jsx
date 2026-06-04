@@ -18,6 +18,11 @@ const setMetaTag = (attrName, attrVal, content) => {
   element.setAttribute('content', content);
 };
 
+const removeMetaTag = (attrName, attrVal) => {
+  const element = document.querySelector(`meta[${attrName}="${attrVal}"]`);
+  if (element) element.remove();
+};
+
 const setLinkTag = (rel, href) => {
   if (!href) return;
   let element = document.querySelector(`link[rel="${rel}"]`);
@@ -52,6 +57,7 @@ export default function SeoHead({
   ogType = 'website',
   ogImage,
   jsonLd,
+  keywords,
 }) {
   const location = useLocation();
 
@@ -68,6 +74,11 @@ export default function SeoHead({
 
     setMetaTag('name', 'description', currentDesc);
     setMetaTag('name', 'robots', currentRobots);
+
+    // Keywords — only set when provided by the page
+    if (keywords) {
+      setMetaTag('name', 'keywords', keywords);
+    }
 
     // Open Graph
     setMetaTag('property', 'og:title', currentTitle);
@@ -93,7 +104,7 @@ export default function SeoHead({
       setJsonLd('seo-jsonld-schema', null);
     }
 
-    // Cleanup function to restore defaults on unmount
+    // Cleanup on unmount — restore defaults
     return () => {
       document.title = DEFAULT_TITLE;
       setMetaTag('name', 'description', DEFAULT_DESC);
@@ -108,8 +119,12 @@ export default function SeoHead({
       setMetaTag('name', 'twitter:image', DEFAULT_OG_IMAGE);
       setLinkTag('canonical', DEFAULT_CANONICAL);
       setJsonLd('seo-jsonld-schema', null);
+      // Remove keywords tag on unmount if it was injected
+      if (keywords) {
+        removeMetaTag('name', 'keywords');
+      }
     };
-  }, [title, description, canonical, robots, ogType, ogImage, jsonLd, location.pathname]);
+  }, [title, description, canonical, robots, ogType, ogImage, jsonLd, keywords, location.pathname]);
 
   return null; // This component doesn't render any visible UI
 }

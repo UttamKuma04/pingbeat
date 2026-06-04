@@ -481,20 +481,78 @@ function LandingPage() {
   const stats = [
   ]
 
-  const softwareApplicationSchema = {
+  const landingPageSchema = {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "PingBEAT",
-    "applicationCategory": "DeveloperApplication",
-    "operatingSystem": "Docker, Linux, macOS, Windows",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
-    "description": "PingBEAT is a self-hosted uptime monitoring, APM, alerting, and status page platform with 30-second checks, SSL tracking, incident history, and SVG uptime badges.",
-    "softwareVersion": "1.0.0",
-    "downloadUrl": "https://github.com/UttamKuma04/pingbeat"
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "PingBEAT",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Docker, Linux, macOS, Windows",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "description": "PingBEAT is a self-hosted uptime monitoring, APM, alerting, and status page platform with 30-second checks, SSL tracking, incident history, and SVG uptime badges.",
+        "softwareVersion": "1.0.0",
+        "license": "https://opensource.org/licenses/MIT",
+        "downloadUrl": "https://github.com/UttamKuma04/pingbeat"
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is PingBEAT?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "PingBEAT is a free, open-source, self-hosted uptime monitoring and APM platform. It checks your HTTP endpoints every 30 seconds, tracks SSL certificates, records incidents, sends alerts via Email/Slack/Discord/Webhook, and provides public status pages — all on infrastructure you control."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is PingBEAT free to use?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. PingBEAT is completely free and open-source under the MIT license. You self-host it on your own server or VPS, so there are no subscription fees or per-monitor charges."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How often does PingBEAT check my website?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "PingBEAT checks your HTTP monitors every 30 seconds using Celery Beat background workers — far more frequent than most free SaaS tools that check every 5 minutes."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I install PingBEAT?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Run 'docker compose up --build' in the project directory. PingBEAT includes a Docker Compose configuration that starts the Django backend, React frontend, PostgreSQL database, Redis, Celery worker, and Celery Beat scheduler automatically."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is the difference between PingBEAT and UptimeRobot?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "UptimeRobot is a cloud-hosted SaaS with plan-based monitor limits. PingBEAT is self-hosted with no per-monitor fees, includes response assertions, maintenance windows, SSL monitoring, a log explorer, APM integration, and gives you complete data ownership."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does PingBEAT support APM (Application Performance Monitoring)?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. PingBEAT includes built-in APM that collects endpoint-level latency (P95, P99), error rates, traffic volume, and Apdex scores from Django, FastAPI, Flask, and Express applications via a lightweight SDK middleware."
+            }
+          }
+        ]
+      }
+    ]
   };
 
   return (
@@ -503,7 +561,8 @@ function LandingPage() {
         title="PingBEAT — Self-Hosted Uptime Monitoring, APM & Status Pages | 30s Checks"
         description="PingBEAT is a self-hosted uptime monitoring, APM, alerting, and status page platform with 30-second checks, SSL tracking, incident history, and SVG uptime badges."
         canonical="https://pingbeat.in/"
-        jsonLd={softwareApplicationSchema}
+        keywords="uptime monitoring, self-hosted uptime monitoring, open source uptime monitoring, website monitoring, APM monitoring, application performance monitoring, self-hosted monitoring, HTTP monitoring, SSL certificate monitoring, status page, free uptime monitoring, uptime monitoring tool, open source APM, server monitoring"
+        jsonLd={landingPageSchema}
       />
 
       {/* ── Nav ── */}
@@ -949,9 +1008,9 @@ function LandingPage() {
       {/* ── Footer ── */}
       <footer className="mt-auto border-t border-slate-200 bg-white pt-16 pb-12 font-sans">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-12 border-b border-slate-200">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 pb-12 border-b border-slate-200">
             {/* Branding Column */}
-            <div className="md:col-span-1 space-y-4">
+            <div className="col-span-2 md:col-span-1 space-y-4">
               <div className="flex items-center gap-3">
                 <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                 <span className="text-lg font-bold text-slate-900 tracking-tight">PingBEAT</span>
@@ -969,6 +1028,19 @@ function LandingPage() {
                 <li><a href="/#how-it-works" className="text-slate-500 hover:text-emerald-600 transition-colors">How It Works</a></li>
                 <li><a href="/#observability" className="text-slate-500 hover:text-emerald-600 transition-colors">Observability</a></li>
                 <li><a href="/#compare" className="text-slate-500 hover:text-emerald-600 transition-colors">Compare Features</a></li>
+              </ul>
+            </div>
+
+            {/* Compare Links */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest mb-4">Compare</h4>
+              <ul className="space-y-2.5 text-sm">
+                <li><Link to="/compare/pingbeat-vs-uptimerobot" className="text-slate-500 hover:text-emerald-600 transition-colors">vs UptimeRobot</Link></li>
+                <li><Link to="/compare/pingbeat-vs-pingdom" className="text-slate-500 hover:text-emerald-600 transition-colors">vs Pingdom</Link></li>
+                <li><Link to="/compare/pingbeat-vs-better-stack" className="text-slate-500 hover:text-emerald-600 transition-colors">vs Better Stack</Link></li>
+                <li><Link to="/compare/pingbeat-vs-datadog" className="text-slate-500 hover:text-emerald-600 transition-colors">vs Datadog</Link></li>
+                <li><Link to="/compare/pingbeat-vs-signoz" className="text-slate-500 hover:text-emerald-600 transition-colors">vs SigNoz</Link></li>
+                <li><Link to="/compare" className="text-slate-500 hover:text-emerald-600 transition-colors font-medium">All comparisons →</Link></li>
               </ul>
             </div>
 

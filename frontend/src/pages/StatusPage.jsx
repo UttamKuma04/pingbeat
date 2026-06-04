@@ -66,9 +66,9 @@ function StatusPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between">
       <SeoHead
-        title={`${data.title} — Operational Status Dashboard`}
-        description={`Real-time service availability, active incidents, and historical uptime metrics for ${data.title}.`}
-        robots="noindex, follow"
+        title={`${data.title} — Live Service Status | Powered by PingBEAT`}
+        description={`Real-time service availability, active incidents, and 90-day historical uptime for ${data.title}. Powered by PingBEAT self-hosted monitoring.`}
+        robots="index, follow"
       />
       <div className="max-w-4xl mx-auto w-full px-4 py-8 sm:py-12">
         {/* Header Title */}
