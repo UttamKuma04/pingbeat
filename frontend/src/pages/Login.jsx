@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
 import GoogleLoginButton from '../components/GoogleLoginButton'
 import { login } from '../services/api'
+import SeoHead from '../components/SeoHead'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -63,6 +64,11 @@ function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-slate-50">
+      <SeoHead
+        title="Sign In — PingBEAT"
+        description="Sign in to your PingBEAT self-hosted uptime monitoring and APM dashboard to manage monitors and route alerts."
+        robots="noindex, nofollow"
+      />
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl"></div>

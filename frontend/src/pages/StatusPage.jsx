@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { getPublicStatus } from '../services/api'
+import SeoHead from '../components/SeoHead'
 
 function StatusPage() {
   const { slug } = useParams()
@@ -64,6 +65,11 @@ function StatusPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between">
+      <SeoHead
+        title={`${data.title} — Operational Status Dashboard`}
+        description={`Real-time service availability, active incidents, and historical uptime metrics for ${data.title}.`}
+        robots="noindex, follow"
+      />
       <div className="max-w-4xl mx-auto w-full px-4 py-8 sm:py-12">
         {/* Header Title */}
         <div className="flex items-center gap-3 mb-8">

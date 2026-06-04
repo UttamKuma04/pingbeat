@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
+import SeoHead from '../components/SeoHead'
 
 function Reveal({ children, delay = 0, className = '' }) {
   const ref = useRef(null)
@@ -480,35 +481,59 @@ function LandingPage() {
   const stats = [
   ]
 
+  const softwareApplicationSchema = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "PingBEAT",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Docker, Linux, macOS, Windows",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "PingBEAT is a self-hosted uptime monitoring, APM, alerting, and status page platform with 30-second checks, SSL tracking, incident history, and SVG uptime badges.",
+    "softwareVersion": "1.0.0",
+    "downloadUrl": "https://github.com/UttamKuma04/pingbeat"
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
+      <SeoHead
+        title="PingBEAT — Self-Hosted Uptime Monitoring, APM & Status Pages | 30s Checks"
+        description="PingBEAT is a self-hosted uptime monitoring, APM, alerting, and status page platform with 30-second checks, SSL tracking, incident history, and SVG uptime badges."
+        canonical="https://pingbeat.in/"
+        jsonLd={softwareApplicationSchema}
+      />
 
       {/* ── Nav ── */}
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-sm">
+      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-sm" role="navigation" aria-label="Main Navigation">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-          <BrandLogo to="/" />
+          <BrandLogo to="/" id="nav-brand-logo" />
           <div className="hidden md:flex items-center space-x-6 text-sm">
-            <a href="#features" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Features</a>
-            <a href="#how-it-works" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">How it works</a>
-            <a href="#observability" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Observability</a>
-            <a href="#compare" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Compare</a>
-            <Link to="/about" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">About</Link>
+            <a href="#features" id="nav-link-features" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Features</a>
+            <a href="#how-it-works" id="nav-link-how" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">How it works</a>
+            <a href="#observability" id="nav-link-observability" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Observability</a>
+            <a href="#compare" id="nav-link-compare" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">Compare</a>
+            <Link to="/about" id="nav-link-about" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">About</Link>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {isAuthenticated ? (
-              <Link to="/dashboard" className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-md rounded-lg">Go to Dashboard</Link>
+              <Link to="/dashboard" id="nav-btn-dashboard" className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-md rounded-lg">Go to Dashboard</Link>
             ) : (
               <>
-                <Link to="/login" className="hidden text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium sm:inline">Sign In</Link>
-                <Link to="/register" className="px-3 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-md sm:px-4">Get Started</Link>
+                <Link to="/login" id="nav-link-login" className="hidden text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium sm:inline">Sign In</Link>
+                <Link to="/register" id="nav-btn-register" className="px-3 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-md sm:px-4">Get Started</Link>
               </>
             )}
           </div>
         </div>
       </nav>
 
-      {/* ── Hero ── */}
-      <header className="border-b border-slate-200 bg-white overflow-hidden">
+      {/* ── Main Content Wrapper ── */}
+      <main className="flex-1" id="main-content">
+        {/* ── Hero ── */}
+        <header className="border-b border-slate-200 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 py-14 grid grid-cols-1 gap-10 items-center sm:px-6 sm:py-20 lg:grid-cols-[1fr_minmax(320px,480px)] lg:gap-16">
           <Reveal>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 mb-6 uppercase tracking-wider">
@@ -919,20 +944,59 @@ function LandingPage() {
       </section>
 
 
+      </main>
+
       {/* ── Footer ── */}
-      <footer className="mt-auto border-t border-slate-200 bg-white py-12">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full pulse-green"></div>
+      <footer className="mt-auto border-t border-slate-200 bg-white pt-16 pb-12 font-sans">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-12 border-b border-slate-200">
+            {/* Branding Column */}
+            <div className="md:col-span-1 space-y-4">
+              <div className="flex items-center gap-3">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                <span className="text-lg font-bold text-slate-900 tracking-tight">PingBEAT</span>
+              </div>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                Self-hosted uptime monitoring, incident alerting, and application performance instrumentation.
+              </p>
+            </div>
+            
+            {/* Product Links */}
             <div>
-              <span className="text-sm font-bold text-slate-700">PingBEAT Monitoring Platform</span>
-              <p className="text-slate-400 text-xs mt-0.5">&copy; {new Date().getFullYear()} PingBEAT. Designed for reliability.</p>
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest mb-4">Product</h4>
+              <ul className="space-y-2.5 text-sm">
+                <li><a href="/#features" className="text-slate-500 hover:text-emerald-600 transition-colors">Features</a></li>
+                <li><a href="/#how-it-works" className="text-slate-500 hover:text-emerald-600 transition-colors">How It Works</a></li>
+                <li><a href="/#observability" className="text-slate-500 hover:text-emerald-600 transition-colors">Observability</a></li>
+                <li><a href="/#compare" className="text-slate-500 hover:text-emerald-600 transition-colors">Compare Features</a></li>
+              </ul>
+            </div>
+
+            {/* Resources Links */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest mb-4">Resources</h4>
+              <ul className="space-y-2.5 text-sm">
+                <li><Link to="/apm/doc" className="text-slate-500 hover:text-emerald-600 transition-colors">APM SDK Docs</Link></li>
+                <li><a href="/#features" className="text-slate-500 hover:text-emerald-600 transition-colors">Public Status Pages</a></li>
+              </ul>
+            </div>
+
+            {/* Account Links */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-widest mb-4">Account</h4>
+              <ul className="space-y-2.5 text-sm">
+                <li><Link to="/login" className="text-slate-500 hover:text-emerald-600 transition-colors">Sign In</Link></li>
+                <li><Link to="/register" className="text-slate-500 hover:text-emerald-600 transition-colors">Register Account</Link></li>
+                <li><Link to="/about" className="text-slate-500 hover:text-emerald-600 transition-colors">About Us</Link></li>
+              </ul>
             </div>
           </div>
-          <div className="flex items-center space-x-6 text-sm">
-            <Link to="/about" className="text-slate-500 hover:text-slate-900 transition-colors">About</Link>
-            <Link to="/login" className="text-slate-500 hover:text-slate-900 transition-colors">Sign In</Link>
-            <Link to="/register" className="text-slate-500 hover:text-slate-900 transition-colors">Register</Link>
+
+          <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-slate-400">&copy; {new Date().getFullYear()} PingBEAT. Open-source monitoring platform.</p>
+            <div className="flex gap-6 text-xs text-slate-400">
+              <span>Designed for reliability.</span>
+            </div>
           </div>
         </div>
       </footer>

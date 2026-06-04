@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
 import GoogleLoginButton from '../components/GoogleLoginButton'
 import { register } from '../services/api'
+import SeoHead from '../components/SeoHead'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -72,6 +73,11 @@ function Register() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-slate-50">
+      <SeoHead
+        title="Create Account — PingBEAT"
+        description="Create an account to start monitoring your web services, APIs, and track SSL certificates with PingBEAT."
+        robots="noindex, nofollow"
+      />
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -left-40 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl"></div>

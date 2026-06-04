@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
+import SeoHead from '../components/SeoHead'
 
 const ingestUrl = 'https://api.pingbeat.in/api/apm/ingest/'
 
@@ -152,17 +153,62 @@ function ApmSdkDocs() {
     setTimeout(() => setCopiedKey(''), 1400)
   }
 
+  const howToSchema = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "How to integrate PingBEAT APM SDK",
+    "description": "Step-by-step guide to instrumenting your backend applications and sending request metrics to the PingBEAT APM dashboard.",
+    "step": [
+      {
+        "@type": "HowToStep",
+        "text": "Open PingBEAT and go to APM.",
+        "position": 1
+      },
+      {
+        "@type": "HowToStep",
+        "text": "Create an application for the service and environment you want to monitor.",
+        "position": 2
+      },
+      {
+        "@type": "HowToStep",
+        "text": "Copy the generated API key (starts with pb_).",
+        "position": 3
+      },
+      {
+        "@type": "HowToStep",
+        "text": "Set the environment variables in your application.",
+        "position": 4
+      },
+      {
+        "@type": "HowToStep",
+        "text": "Add the middleware or request hook for your framework.",
+        "position": 5
+      },
+      {
+        "@type": "HowToStep",
+        "text": "Make a request to your service and check APM after one aggregation cycle.",
+        "position": 6
+      }
+    ]
+  };
+
   return (
     <div className="min-h-screen bg-white text-slate-900">
+      <SeoHead
+        title="APM SDK Integration Guide — PingBEAT"
+        description="Learn how to instrument your Django, FastAPI, Flask, or Express backend applications with the PingBEAT APM SDK to collect latency, traffic volume, and error rates."
+        canonical="https://pingbeat.in/apm/doc"
+        jsonLd={howToSchema}
+      />
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
         <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
-          <BrandLogo to={isAuthenticated ? '/dashboard' : '/'} />
+          <BrandLogo to={isAuthenticated ? '/dashboard' : '/'} id="apm-docs-logo" />
           <div className="flex shrink-0 items-center gap-2 text-sm">
-            <Link to={isAuthenticated ? '/apm' : '/login'} className="font-semibold text-slate-600 hover:text-slate-950">
+            <Link to={isAuthenticated ? '/apm' : '/login'} id="apm-docs-link-signin" className="font-semibold text-slate-600 hover:text-slate-950">
               {isAuthenticated ? 'Open APM' : 'Sign in'}
             </Link>
             {!isAuthenticated && (
-              <Link to="/register" className="rounded bg-slate-950 px-3 py-1.5 font-semibold text-white">
+              <Link to="/register" id="apm-docs-btn-register" className="rounded bg-slate-950 px-3 py-1.5 font-semibold text-white">
                 Register
               </Link>
             )}

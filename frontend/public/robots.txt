@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /monitors/
+Disallow: /analytics
+Disallow: /apm
+Disallow: /incidents
+Disallow: /logs
+Disallow: /settings
+Disallow: /status-pages
+Disallow: /login
+Disallow: /register
+
+Sitemap: https://pingbeat.in/sitemap.xml
