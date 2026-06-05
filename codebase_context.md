@@ -56,9 +56,15 @@ PinBEAT/
 Directory tree note: this snapshot predates the APM addition. New/changed files include:
 
 - `backend/config/pingbeat_apm.py` for the lightweight Django APM middleware.
+- `backend/config/urls.py` for `robots.txt` and `sitemap.xml` discovery routes.
+- `backend/monitoring/sitemaps.py` for public sitemap entries covering compare pages and status pages.
 - `backend/monitoring/migrations/0005_application_apimetricsummary_apimetric_and_more.py` for APM database tables.
 - `frontend/src/pages/ApmDashboard.jsx` for the `/apm` dashboard.
+- `frontend/src/pages/ApmSdkDocs.jsx` for the public APM integration guide at `/apm/doc`.
+- `frontend/src/pages/CompareHubPage.jsx` and `frontend/src/pages/ComparePage.jsx` for the SEO comparison hub and competitor pages.
+- `frontend/src/pages/IncidentsPage.jsx`, `frontend/src/pages/LogsExplorer.jsx`, and `frontend/src/pages/SettingsPage.jsx` for incident review, log search, and workspace settings.
 - `docs/APM_ARCHITECTURE.md` for the detailed APM architecture and SDK design.
+- `docs/sdk/pingbeat_sdk.py` and `docs/sdk/pingbeat_sdk.js` for standalone SDK examples.
 
 ---
 
@@ -209,6 +215,13 @@ Background jobs are defined in `backend/monitoring/tasks.py` and `backend/accoun
 
 APM analytics endpoints support `hours`, `application_id`, and in some cases `endpoint` query parameters.
 
+### SEO and Discovery
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `GET` | `/robots.txt` | Dynamic crawl rules for public and authenticated routes | No |
+| `GET` | `/sitemap.xml` | Dynamic sitemap covering the landing page, about page, APM docs, compare pages, and public status pages | No |
+
 ---
 
 ## 🎨 Frontend UI Pages
@@ -226,6 +239,13 @@ Located under `frontend/src/pages/`:
 9. **`AboutPage.jsx`**: Dedicated public About page explaining PingBEAT's mission, self-hosted architecture, monitoring workflow, alerting model, and operating principles.
 10. **`ApmDashboard.jsx`**: APM workspace at `/apm`. Users register applications, copy API keys, filter by app/time range, and view total requests, average response time, error rate, active apps, traffic bars, latency distribution, endpoint tables, slowest endpoints, and error breakdowns.
 
+11. **`IncidentsPage.jsx`**: Incident triage screen with active/resolved filtering, MTTR metrics, timeline visualization, and incident history tables.
+12. **`LogsExplorer.jsx`**: Log search workspace with faceted filtering, status/code/region breakdowns, latency filters, and raw log expansion.
+13. **`SettingsPage.jsx`**: Workspace settings screen for profile details, stored UI preferences, APM application summary, and integration placeholders.
+14. **`CompareHubPage.jsx`**: Public comparison hub for SEO traffic that groups PingBEAT against uptime and observability competitors.
+15. **`ComparePage.jsx`**: Individual competitor comparison pages under `/compare/pingbeat-vs-:slug` with pricing, feature, and self-hosting breakdowns.
+16. **`ApmSdkDocs.jsx`**: Public APM SDK documentation page at `/apm/doc` with setup examples, payload format, and framework-specific integration snippets.
+
 ### Frontend APM API Client
 
 `frontend/src/services/api.js` includes:
@@ -239,6 +259,16 @@ Located under `frontend/src/pages/`:
 - `getApmErrors(params)`
 
 `frontend/src/App.jsx` registers `/apm`, and `frontend/src/components/Navbar.jsx` exposes an `APM` nav link.
+
+### Shared Frontend Components
+
+Located under `frontend/src/components/`:
+
+- `Navbar`, `ProtectedRoute`, and `LiveStatusBadge` for global navigation and auth gating.
+- `DataTable`, `Breadcrumb`, `EmptyState`, and `MetricCard` for reusable dashboard surfaces.
+- `DonutChart`, `SparklineChart`, `StatusTimeline`, and `TimeRangePicker` for analytics widgets.
+- `GlobalSearch`, `FilterChips`, and `GoogleLoginButton` for search, filtering, and auth flows.
+- `SeoHead` and `BrandLogo` for page metadata and brand presentation.
 
 ---
 
