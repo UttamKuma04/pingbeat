@@ -140,7 +140,7 @@ class ApiMetricSerializer(serializers.ModelSerializer):
         model = ApiMetric
         fields = (
             'id', 'application', 'application_name', 'endpoint', 'method',
-            'status_code', 'response_time_ms', 'timestamp'
+            'status_code', 'response_time_ms', 'timestamp', 'error_message'
         )
         read_only_fields = fields
 
@@ -163,6 +163,7 @@ class ApiMetricIngestItemSerializer(serializers.Serializer):
     status_code = serializers.IntegerField(min_value=100, max_value=599)
     response_time_ms = serializers.FloatField(min_value=0)
     timestamp = serializers.DateTimeField()
+    error_message = serializers.CharField(max_length=2000, required=False, allow_null=True, allow_blank=True)
 
     def validate_method(self, value):
         return value.upper()
@@ -170,7 +171,7 @@ class ApiMetricIngestItemSerializer(serializers.Serializer):
 
 class ApiMetricIngestSerializer(serializers.Serializer):
     """Validate one SDK batch."""
-    api_key = serializers.CharField(max_length=80)
+    api_key = serializers.CharField(max_length=80, required=False, allow_blank=True)
     metrics = ApiMetricIngestItemSerializer(many=True)
 
     def validate_metrics(self, value):

@@ -166,10 +166,17 @@ class ApiMetric(models.Model):
     status_code = models.IntegerField()
     response_time_ms = models.FloatField()
     timestamp = models.DateTimeField()
+    error_message = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-timestamp']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['application', 'endpoint', 'method', 'status_code', 'timestamp'],
+                name='apimetric_dedup_constraint',
+            )
+        ]
         indexes = [
             models.Index(fields=['application', 'timestamp']),
             models.Index(fields=['application', 'endpoint', 'timestamp']),
@@ -246,6 +253,14 @@ def setup_periodic_tasks(sender, **kwargs):
                 'interval': schedule_60s,
             }
         )
+
+        cron_5m, _ = CrontabSchedule.objects.get_or_create(minute='*/5')
+        PeriodicTask.objects.get_or_create(
+            name='Check APM Slow Endpoints',
+            defaults={
+                'task': 'monitoring.tasks.check_apm_slow_endpoints',
+                'crontab': cron_5m,
+            }
+        )
     except Exception:
         pass
-

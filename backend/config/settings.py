@@ -11,15 +11,17 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-pingbeat-dev-key-chan
 
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
+ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "").split(",") if host.strip()]
 
 CSRF_TRUSTED_ORIGINS = os.getenv(
     "CSRF_TRUSTED_ORIGINS", ""
 ).split(",")
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS if origin.strip()]
 
 CORS_ALLOWED_ORIGINS = os.getenv(
     "CORS_ALLOWED_ORIGINS", ""
 ).split(",")
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS if origin.strip()]
 
 CORS_ALLOW_ALL_ORIGINS = False
 
@@ -216,8 +218,14 @@ PINGBEAT_APM_LOCAL_CAPTURE = os.environ.get(
     'PINGBEAT_APM_LOCAL_CAPTURE',
     'True' if DEBUG else 'False'
 ).lower() in ('true', '1', 'yes')
-PINGBEAT_APM_EXCLUDED_PATHS = (
-    '/api/apm/ingest/',
-    '/admin/',
-    '/static/',
+PINGBEAT_APM_EXCLUDED_PATHS = tuple(
+    path.strip()
+    for path in os.environ.get(
+        'PINGBEAT_APM_EXCLUDED_PATHS',
+        '/api/apm/ingest/,/admin/,/static/',
+    ).split(',')
+    if path.strip()
 )
+APM_INGEST_RATE_LIMIT = int(os.environ.get('APM_INGEST_RATE_LIMIT', '60'))
+APM_METRIC_RETENTION_DAYS = int(os.environ.get('APM_METRIC_RETENTION_DAYS', '7'))
+APM_SLOW_ENDPOINT_THRESHOLD_MS = int(os.environ.get('APM_SLOW_ENDPOINT_THRESHOLD_MS', '2000'))

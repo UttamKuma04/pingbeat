@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import {
   createApmApplication,
+  deleteApmApplication,
   getApmAnalytics,
   getApmApplications,
   getApmEndpoints,
   getApmErrors,
   getApmTraffic,
+  rotateApmApplicationKey,
 } from '../services/api'
 import SparklineChart from '../components/SparklineChart'
 
@@ -113,14 +115,40 @@ function ApmDashboard() {
     setTimeout(() => setCopiedKey(''), 1500)
   }
 
+  async function handleRotateKey(app) {
+    if (!window.confirm(`Rotate API key for ${app.name}? Existing SDK clients using the old key will stop ingesting.`)) return
+    try {
+      const res = await rotateApmApplicationKey(app.id)
+      setApplications((items) => items.map((item) => (item.id === app.id ? res.data : item)))
+      setError('')
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to rotate API key.'))
+    }
+  }
+
+  async function handleDeleteApplication(app) {
+    if (!window.confirm(`Delete ${app.name} and all of its APM data?`)) return
+    try {
+      await deleteApmApplication(app.id)
+      const nextApps = applications.filter((item) => item.id !== app.id)
+      setApplications(nextApps)
+      setApplicationCount((count) => Math.max(count - 1, 0))
+      if (String(app.id) === selectedApplicationId) {
+        setSelectedApplicationId(nextApps[0] ? String(nextApps[0].id) : '')
+      }
+      setError('')
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to delete application.'))
+    }
+  }
+
   const maxRequests = Math.max(...traffic.map((row) => row.requests_count || 0), 1)
   const slowestEndpoints = [...endpoints]
     .sort((a, b) => (b.avg_response_time || 0) - (a.avg_response_time || 0))
     .slice(0, 5)
-  const apdex = analytics?.total_requests
-    ? Math.round(Math.max(0, 1 - ((analytics?.error_rate || 0) / 100) - ((analytics?.average_response_time || 0) > 2000 ? 0.25 : 0)) * 100) / 100
-    : 0
+  const apdex = analytics?.apdex_score ?? 0
   const errorMax = Math.max(...traffic.map((row) => row.errors_count || row.error_count || 0), 1)
+  const hasNoMetrics = !loading && applications.length > 0 && (analytics?.total_requests || 0) === 0
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -177,6 +205,18 @@ function ApmDashboard() {
               <option value="24">Last 24 hours</option>
               <option value="168">Last 7 days</option>
             </select>
+            <div className="flex overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
+              {[['1', '1h'], ['6', '6h'], ['24', '24h'], ['168', '7d']].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setHours(value)}
+                  className={`h-10 px-3 text-xs font-bold ${hours === value ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -229,6 +269,9 @@ function ApmDashboard() {
                       <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
                         {app.metrics_count || 0} metrics
                       </span>
+                      {String(app.id) === selectedApplicationId && (
+                        <HealthBadge errorRate={analytics?.error_rate || 0} />
+                      )}
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs text-slate-500">Last activity {app.last_seen ? new Date(app.last_seen).toLocaleDateString() : 'unknown'}</p>
@@ -236,7 +279,7 @@ function ApmDashboard() {
                         {maskApiKey(app.api_key)}
                       </code>
                     </div>
-                    <div className="flex justify-start sm:justify-end">
+                    <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
                       <button
                         type="button"
                         onClick={(event) => {
@@ -247,6 +290,26 @@ function ApmDashboard() {
                       >
                         {copiedKey === app.api_key ? 'Copied' : 'Copy'}
                       </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          handleRotateKey(app)
+                        }}
+                        className="rounded-md border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-50"
+                      >
+                        Rotate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          handleDeleteApplication(app)
+                        }}
+                        className="rounded-md border border-red-300 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
                 ))
@@ -254,6 +317,16 @@ function ApmDashboard() {
             </div>
           </div>
         </div>
+
+        {hasNoMetrics && (
+          <section className="glass-card mb-8 p-5">
+            <h2 className="mb-2 text-base font-bold text-slate-900">Send your first metric</h2>
+            <p className="mb-4 text-sm text-slate-600">This application has no APM data in the selected range. Add the SDK or test the ingest endpoint with this payload.</p>
+            <pre className="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">
+              <code>{buildEmptyStateSnippet(applications.find((app) => String(app.id) === selectedApplicationId)?.api_key)}</code>
+            </pre>
+          </section>
+        )}
 
         <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard label="Total Requests" value={analytics?.total_requests || 0} />
@@ -327,6 +400,7 @@ function ApmDashboard() {
             <Breakdown title="By Status Code" rows={errors?.by_status_code || []} labelKey="status_code" />
             <Breakdown title="By Endpoint" rows={errors?.top_error_endpoints || []} labelKey="endpoint" />
           </div>
+          <ErrorGroupTable rows={errors?.error_groups || []} />
         </section>
       </main>
 
@@ -374,6 +448,21 @@ function getApiErrorMessage(err, fallback) {
     return []
   })
   return messages.join(' ') || fallback
+}
+
+function buildEmptyStateSnippet(apiKey = 'pb_your_api_key_here') {
+  return [
+    'curl -X POST "https://api.pingbeat.in/api/apm/ingest/" \\',
+    `  -H "X-API-Key: ${apiKey || 'pb_your_api_key_here'}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"metrics":[{"endpoint":"/health","method":"GET","status_code":200,"response_time_ms":42,"timestamp":"2026-06-01T12:00:00Z"}]}\'',
+  ].join('\n')
+}
+
+function HealthBadge({ errorRate }) {
+  const tone = errorRate > 5 ? 'bg-red-50 text-red-700' : errorRate >= 1 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+  const label = errorRate > 5 ? 'Unhealthy' : errorRate >= 1 ? 'Degraded' : 'Healthy'
+  return <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${tone}`}>{label}</span>
 }
 
 function MetricCard({ label, value, tone = 'slate' }) {
@@ -463,6 +552,34 @@ function Breakdown({ title, rows, labelKey }) {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function ErrorGroupTable({ rows }) {
+  if (!rows.length) return null
+
+  return (
+    <div className="mt-6 overflow-x-auto border-t border-slate-200 pt-5">
+      <h3 className="mb-3 text-sm font-semibold text-slate-700">By Endpoint and Status</h3>
+      <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th className="px-4 py-3 text-left font-semibold">Endpoint</th>
+            <th className="px-4 py-3 text-right font-semibold">Status</th>
+            <th className="px-4 py-3 text-right font-semibold">Count</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 bg-white">
+          {rows.map((row) => (
+            <tr key={`${row.status_code}-${row.endpoint}`}>
+              <td className="max-w-[420px] truncate px-4 py-3 font-mono text-xs text-slate-700">{row.endpoint}</td>
+              <td className="px-4 py-3 text-right font-mono text-xs text-red-600">{row.status_code}</td>
+              <td className="px-4 py-3 text-right font-semibold text-slate-900">{row.count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

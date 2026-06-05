@@ -169,6 +169,14 @@ export function getApmApplication(id) {
   return api.get(`/apm/applications/${id}/`)
 }
 
+export function deleteApmApplication(id) {
+  return api.delete(`/apm/applications/${id}/`)
+}
+
+export function rotateApmApplicationKey(id) {
+  return api.post(`/apm/applications/${id}/rotate-key/`)
+}
+
 export function getApmAnalytics(params = {}) {
   return api.get('/apm/analytics/', { params })
 }

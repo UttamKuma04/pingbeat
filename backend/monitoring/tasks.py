@@ -10,6 +10,7 @@ import requests as http_requests
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import make_aware
+from django.core.cache import cache
 from django.core.mail import send_mail
 from django.conf import settings
 from celery import shared_task
@@ -435,35 +436,47 @@ def cleanup_old_logs(days_to_keep=30):
     """Delete logs older than a configurable number of days to prevent database bloat."""
     cutoff_date = timezone.now() - timedelta(days=days_to_keep)
     deleted_count, _ = MonitorLog.objects.filter(checked_at__lt=cutoff_date).delete()
-    return f"Deleted {deleted_count} logs older than {days_to_keep} days."
+    apm_days = getattr(settings, 'APM_METRIC_RETENTION_DAYS', 7)
+    apm_cutoff = timezone.now() - timedelta(days=apm_days)
+    deleted_metrics, _ = ApiMetric.objects.filter(created_at__lt=apm_cutoff).delete()
+    summary_cutoff = timezone.now() - timedelta(days=90)
+    deleted_summaries, _ = ApiMetricSummary.objects.filter(minute_bucket__lt=summary_cutoff).delete()
+    return (
+        f"Deleted {deleted_count} logs older than {days_to_keep} days, "
+        f"{deleted_metrics} APM metrics, and {deleted_summaries} APM summaries."
+    )
 
 
-@shared_task
-def process_apm_metrics(application_id, metrics):
+@shared_task(bind=True, max_retries=3, default_retry_delay=5)
+def process_apm_metrics(self, application_id, metrics):
     """Persist one SDK batch using bulk_create for ingest throughput."""
-    rows = []
-    for metric in metrics:
-        timestamp = parse_datetime(metric['timestamp']) if isinstance(metric['timestamp'], str) else metric['timestamp']
-        if timestamp and timezone.is_naive(timestamp):
-            timestamp = timezone.make_aware(timestamp, datetime_timezone.utc)
+    try:
+        rows = []
+        for metric in metrics:
+            timestamp = parse_datetime(metric['timestamp']) if isinstance(metric['timestamp'], str) else metric['timestamp']
+            if timestamp and timezone.is_naive(timestamp):
+                timestamp = timezone.make_aware(timestamp, datetime_timezone.utc)
 
-        rows.append(ApiMetric(
-            application_id=application_id,
-            endpoint=metric['endpoint'],
-            method=metric['method'].upper(),
-            status_code=metric['status_code'],
-            response_time_ms=round(float(metric['response_time_ms']), 2),
-            timestamp=timestamp or timezone.now(),
-        ))
+            rows.append(ApiMetric(
+                application_id=application_id,
+                endpoint=metric['endpoint'],
+                method=metric['method'].upper(),
+                status_code=metric['status_code'],
+                response_time_ms=round(float(metric['response_time_ms']), 2),
+                timestamp=timestamp or timezone.now(),
+                error_message=(metric.get('error_message') or '')[:2000],
+            ))
 
-    ApiMetric.objects.bulk_create(rows, batch_size=1000)
-    return f"Saved {len(rows)} APM metrics for application {application_id}."
+        ApiMetric.objects.bulk_create(rows, batch_size=1000, ignore_conflicts=True)
+        return f"Saved {len(rows)} APM metrics for application {application_id}."
+    except Exception as exc:
+        raise self.retry(exc=exc)
 
 
 @shared_task
 def aggregate_apm_metrics(minutes_back=10):
     """Aggregate recent raw API metrics into minute summary rows."""
-    end = (timezone.now() + timedelta(minutes=1)).replace(second=0, microsecond=0)
+    end = timezone.now().replace(second=0, microsecond=0)
     start = end - timedelta(minutes=minutes_back)
     metrics = ApiMetric.objects.filter(
         timestamp__gte=start,
@@ -497,3 +510,40 @@ def aggregate_apm_metrics(minutes_back=10):
         updated_count += 1
 
     return f"Updated {updated_count} APM summary buckets."
+
+
+@shared_task
+def check_apm_slow_endpoints():
+    """Alert application owners when endpoint P95 latency stays above threshold."""
+    threshold_ms = getattr(settings, 'APM_SLOW_ENDPOINT_THRESHOLD_MS', 2000)
+    window = timezone.now() - timedelta(minutes=5)
+    summaries = ApiMetricSummary.objects.filter(
+        minute_bucket__gte=window,
+        p95_latency__gte=threshold_ms,
+    ).select_related('application__user')
+
+    sent = 0
+    for summary in summaries:
+        alert_key = f'apm_slow_alert:{summary.application_id}:{summary.endpoint}'
+        if cache.get(alert_key):
+            continue
+        _send_apm_slow_endpoint_email(summary, threshold_ms)
+        cache.set(alert_key, True, timeout=3600)
+        sent += 1
+    return f"Sent {sent} APM slow endpoint alerts."
+
+
+def _send_apm_slow_endpoint_email(summary, threshold_ms):
+    user = summary.application.user
+    if not user.email:
+        return
+
+    subject = f"[PingBEAT APM] Slow endpoint detected: {summary.endpoint}"
+    body = (
+        f"Application: {summary.application.name}\n"
+        f"Endpoint: {summary.endpoint}\n"
+        f"P95 Latency: {summary.p95_latency:.0f}ms (threshold: {threshold_ms}ms)\n"
+        "Period: last 5 minutes\n\n"
+        "View in dashboard: https://pingbeat.in/apm\n"
+    )
+    send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=True)

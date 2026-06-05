@@ -1,4 +1,5 @@
 import csv
+from django.core.cache import cache
 from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Avg, Min, Max, Count, Sum, Q, Prefetch
@@ -427,15 +428,41 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             })
         serializer.save(user=self.request.user)
 
+    @action(detail=True, methods=['post'], url_path='rotate-key')
+    def rotate_key(self, request, pk=None):
+        application = self.get_object()
+        application.api_key = Application._meta.get_field('api_key').get_default()
+        application.save(update_fields=['api_key'])
+        return Response(self.get_serializer(application).data)
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def apm_ingest(request):
     """Receive SDK metric batches, validate the API key, and enqueue processing."""
+    body_api_key = request.data.get('api_key', '') if hasattr(request.data, 'get') else ''
+    provided_api_key = request.headers.get('X-API-Key') or body_api_key
+    rate_limit_key = f'apm_ingest_rate:{provided_api_key or "anonymous"}'
+    window_seconds = 60
+    max_requests = getattr(settings, 'APM_INGEST_RATE_LIMIT', 60)
+    current = cache.get(rate_limit_key, 0)
+
+    if current >= max_requests:
+        response = Response({'error': 'Rate limit exceeded.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        response['X-RateLimit-Limit'] = str(max_requests)
+        response['X-RateLimit-Remaining'] = '0'
+        response['X-RateLimit-Window'] = str(window_seconds)
+        return response
+
+    cache.set(rate_limit_key, current + 1, timeout=window_seconds)
+
     serializer = ApiMetricIngestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
-    api_key = serializer.validated_data['api_key']
+    api_key = provided_api_key or serializer.validated_data.get('api_key', '')
+    if not api_key:
+        return Response({'error': 'API key is required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
     try:
         application = Application.objects.get(api_key=api_key)
     except Application.DoesNotExist:
@@ -449,6 +476,7 @@ def apm_ingest(request):
             'status_code': metric['status_code'],
             'response_time_ms': metric['response_time_ms'],
             'timestamp': metric['timestamp'].isoformat(),
+            'error_message': metric.get('error_message') or '',
         })
 
     if getattr(settings, 'PINGBEAT_APM_SYNC_INGEST', False):
@@ -457,11 +485,16 @@ def apm_ingest(request):
     else:
         process_apm_metrics.delay(application.id, metrics)
 
-    return Response({
+    remaining = max(max_requests - (current + 1), 0)
+    response = Response({
         'status': 'accepted',
         'application_id': application.id,
         'queued_metrics': len(metrics),
     }, status=status.HTTP_202_ACCEPTED)
+    response['X-RateLimit-Limit'] = str(max_requests)
+    response['X-RateLimit-Remaining'] = str(remaining)
+    response['X-RateLimit-Window'] = str(window_seconds)
+    return response
 
 
 def _user_apm_summaries(request):
@@ -488,6 +521,10 @@ def _user_apm_summaries(request):
 def apm_analytics(request):
     """Overview cards for the APM dashboard."""
     summaries = _user_apm_summaries(request)
+    try:
+        hours = int(request.query_params.get('hours', 24))
+    except (TypeError, ValueError):
+        hours = 24
     rows = list(summaries.values(
         'requests_count', 'avg_response_time', 'error_rate', 'p95_latency', 'p99_latency'
     ))
@@ -504,6 +541,22 @@ def apm_analytics(request):
         avg_response_time = 0
         error_rate = 0
 
+    raw_metrics = ApiMetric.objects.filter(
+        application__user=request.user,
+        timestamp__gte=timezone.now() - timedelta(hours=max(min(hours, 24 * 30), 1)),
+    )
+    application_id = request.query_params.get('application_id')
+    if application_id:
+        raw_metrics = raw_metrics.filter(application_id=application_id)
+    apdex_threshold = 200
+    raw_total = raw_metrics.count()
+    satisfied = raw_metrics.filter(response_time_ms__lte=apdex_threshold).count()
+    tolerating = raw_metrics.filter(
+        response_time_ms__gt=apdex_threshold,
+        response_time_ms__lte=apdex_threshold * 4,
+    ).count()
+    apdex_score = round((satisfied + tolerating / 2) / raw_total, 2) if raw_total else None
+
     return Response({
         'total_requests': total_requests,
         'average_response_time': round(avg_response_time, 2),
@@ -511,6 +564,8 @@ def apm_analytics(request):
         'active_applications': Application.objects.filter(user=request.user).count(),
         'p95_latency': round(max([row['p95_latency'] for row in rows], default=0), 2),
         'p99_latency': round(max([row['p99_latency'] for row in rows], default=0), 2),
+        'apdex_score': apdex_score,
+        'apdex_threshold_ms': apdex_threshold,
     })
 
 
@@ -580,9 +635,19 @@ def apm_errors(request):
 
     by_status = metrics.values('status_code').annotate(count=Count('id')).order_by('-count')
     by_endpoint = metrics.values('endpoint').annotate(count=Count('id')).order_by('-count')[:10]
+    groups = metrics.values('status_code', 'endpoint').annotate(
+        count=Count('id'),
+        first_seen=Min('timestamp'),
+        last_seen=Max('timestamp'),
+    ).order_by('-count')[:50]
+    recent = metrics.exclude(error_message__isnull=True).exclude(error_message='').values(
+        'status_code', 'endpoint', 'error_message', 'timestamp'
+    ).order_by('-timestamp')[:10]
 
     return Response({
         'total_errors': metrics.count(),
         'by_status_code': list(by_status),
         'top_error_endpoints': list(by_endpoint),
+        'error_groups': list(groups),
+        'recent_errors': list(recent),
     })

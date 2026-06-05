@@ -23,4 +23,8 @@ app.conf.beat_schedule = {
         'task': 'monitoring.tasks.aggregate_apm_metrics',
         'schedule': 60.0,
     },
+    'check-apm-slow-endpoints': {
+        'task': 'monitoring.tasks.check_apm_slow_endpoints',
+        'schedule': crontab(minute='*/5'),
+    },
 }

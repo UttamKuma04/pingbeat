@@ -1,4 +1,5 @@
 import atexit
+import signal
 import threading
 import time
 from datetime import datetime, timezone
@@ -14,6 +15,7 @@ class PingBeatBuffer:
         self._metrics = []
         self._lock = threading.Lock()
         self._timer_started = False
+        self._signal_registered = False
 
     def start(self):
         if self._timer_started:
@@ -21,6 +23,7 @@ class PingBeatBuffer:
         self._timer_started = True
         self._schedule_flush()
         atexit.register(self.flush)
+        self._register_sigterm_flush()
 
     def capture(self, metric):
         max_batch_size = getattr(settings, 'PINGBEAT_APM_MAX_BATCH_SIZE', 500)
@@ -57,6 +60,7 @@ class PingBeatBuffer:
             requests.post(
                 ingest_url,
                 json={'api_key': api_key, 'metrics': metrics},
+                headers={'X-API-Key': api_key},
                 timeout=getattr(settings, 'PINGBEAT_APM_TIMEOUT_SECONDS', 5),
             )
         except requests.RequestException:
@@ -82,6 +86,25 @@ class PingBeatBuffer:
     def _flush_and_reschedule(self):
         self.flush()
         self._schedule_flush()
+
+    def _register_sigterm_flush(self):
+        if self._signal_registered:
+            return
+        try:
+            previous_handler = signal.getsignal(signal.SIGTERM)
+
+            def handle_sigterm(signum, frame):
+                self.flush()
+                if callable(previous_handler):
+                    previous_handler(signum, frame)
+                else:
+                    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+                    signal.raise_signal(signal.SIGTERM)
+
+            signal.signal(signal.SIGTERM, handle_sigterm)
+            self._signal_registered = True
+        except ValueError:
+            pass
 
 
 buffer = PingBeatBuffer()
