@@ -2,7 +2,8 @@ import csv
 from django.core.cache import cache
 from datetime import timedelta
 from django.utils import timezone
-from django.db.models import Avg, Min, Max, Count, Sum, Q, Prefetch
+from django.db.models import Avg, Min, Max, Count, Sum, Q, Prefetch, Subquery, OuterRef
+from django.db.models.functions import ExtractHour
 from django.http import HttpResponse
 from django.conf import settings
 from rest_framework import viewsets, status
@@ -38,16 +39,51 @@ MAX_MONITORS_PER_USER = 10
 MAX_APM_APPLICATIONS_PER_USER = 5
 
 
+# ---------------------------------------------------------------------------
+# Safe cache helpers — gracefully fall back to no-op when Redis is unavailable
+# (e.g. running locally without a Redis instance).
+# ---------------------------------------------------------------------------
+def _cache_get(key):
+    try:
+        return cache.get(key)
+    except Exception:
+        return None
+
+
+def _cache_set(key, value, timeout=30):
+    try:
+        cache.set(key, value, timeout=timeout)
+    except Exception:
+        pass
+
+
+def _cache_delete(key):
+    try:
+        cache.delete(key)
+    except Exception:
+        pass
+
+
 class MonitorViewSet(viewsets.ModelViewSet):
     """CRUD viewset for monitors - scoped to the authenticated user."""
     serializer_class = MonitorSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Prevent N+1 queries by prefetching the logs
-        return Monitor.objects.filter(user=self.request.user).prefetch_related(
-            Prefetch('logs', queryset=MonitorLog.objects.order_by('-checked_at'), to_attr='prefetched_logs')
+        # Use Subquery annotations to fetch latest log info in a single query,
+        # completely avoiding expensive prefetch joins of entire logs tables.
+        latest_log = MonitorLog.objects.filter(monitor=OuterRef('pk')).order_by('-checked_at')
+        return Monitor.objects.filter(user=self.request.user).annotate(
+            latest_is_up=Subquery(latest_log.values('is_up')[:1]),
+            latest_checked=Subquery(latest_log.values('checked_at')[:1]),
+            latest_response_time=Subquery(latest_log.values('response_time_ms')[:1]),
+            latest_status_code=Subquery(latest_log.values('status_code')[:1]),
+            latest_status=Subquery(latest_log.values('status')[:1]),
         )
+
+    def _invalidate_analytics_cache(self, user_id):
+        """Bust the 30-second analytics cache for a user after any monitor mutation."""
+        _cache_delete(f'global_analytics:{user_id}')
 
     def perform_create(self, serializer):
         if Monitor.objects.filter(user=self.request.user).count() >= MAX_MONITORS_PER_USER:
@@ -55,6 +91,12 @@ class MonitorViewSet(viewsets.ModelViewSet):
                 'detail': f'You can create at most {MAX_MONITORS_PER_USER} monitors.'
             })
         serializer.save(user=self.request.user)
+        self._invalidate_analytics_cache(self.request.user.id)
+
+    def perform_destroy(self, instance):
+        user_id = self.request.user.id
+        instance.delete()
+        self._invalidate_analytics_cache(user_id)
 
     @action(detail=True, methods=['post'])
     def pause(self, request, pk=None):
@@ -62,6 +104,7 @@ class MonitorViewSet(viewsets.ModelViewSet):
         monitor = self.get_object()
         monitor.is_active = False
         monitor.save()
+        self._invalidate_analytics_cache(request.user.id)
         return Response(MonitorSerializer(monitor).data)
 
     @action(detail=True, methods=['post'])
@@ -70,6 +113,7 @@ class MonitorViewSet(viewsets.ModelViewSet):
         monitor = self.get_object()
         monitor.is_active = True
         monitor.save()
+        self._invalidate_analytics_cache(request.user.id)
         return Response(MonitorSerializer(monitor).data)
 
     @action(detail=False, methods=['post'])
@@ -85,13 +129,16 @@ class MonitorViewSet(viewsets.ModelViewSet):
 
         if action_type == 'pause':
             count = monitors.update(is_active=False)
+            self._invalidate_analytics_cache(request.user.id)
             return Response({'message': f'Paused {count} monitors.'})
         elif action_type == 'resume':
             count = monitors.update(is_active=True)
+            self._invalidate_analytics_cache(request.user.id)
             return Response({'message': f'Resumed {count} monitors.'})
         elif action_type == 'delete':
             count = monitors.count()
             monitors.delete()
+            self._invalidate_analytics_cache(request.user.id)
             return Response({'message': f'Deleted {count} monitors.'})
         else:
             return Response({'error': f'Unknown action: {action_type}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -340,10 +387,15 @@ def monitor_badge(request, pk):
 @permission_classes([IsAuthenticated])
 def global_analytics(request):
     """Aggregate analytics dashboard metrics across all user monitors."""
+    cache_key = f'global_analytics:{request.user.id}'
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return Response(cached)
+
     user_monitors = Monitor.objects.filter(user=request.user)
     total_monitors = user_monitors.count()
     if total_monitors == 0:
-        return Response({
+        payload = {
             'total_monitors': 0,
             'active_monitors': 0,
             'overall_sla': 100.0,
@@ -351,51 +403,71 @@ def global_analytics(request):
             'slowest_monitors': [],
             'active_incidents_count': 0,
             'hourly_heatmap': [{'hour': h, 'count': 0} for h in range(24)]
-        })
+        }
+        _cache_set(cache_key, payload, timeout=30)
+        return Response(payload)
 
-    active_monitors = user_monitors.filter(is_active=True).count()
     now = timezone.now()
     since_7d = now - timedelta(days=7)
-    all_logs_7d = MonitorLog.objects.filter(monitor__user=request.user, checked_at__gte=since_7d)
+    base_qs = MonitorLog.objects.filter(monitor__user=request.user, checked_at__gte=since_7d)
 
-    total_checks = all_logs_7d.count()
-    up_checks = all_logs_7d.filter(is_up=True).count()
+    # Single aggregate call: total checks, up checks, and average latency together
+    agg = base_qs.aggregate(
+        total_checks=Count('id'),
+        up_checks=Count('id', filter=Q(is_up=True)),
+        avg_latency=Avg('response_time_ms', filter=Q(is_up=True, response_time_ms__isnull=False)),
+    )
+    total_checks = agg['total_checks'] or 0
+    up_checks = agg['up_checks'] or 0
     overall_sla = round((up_checks / total_checks) * 100, 2) if total_checks > 0 else 100.0
+    avg_response_time = round(agg['avg_latency'], 2) if agg['avg_latency'] else 0
 
-    avg_latency = all_logs_7d.filter(is_up=True, response_time_ms__isnull=False).aggregate(Avg('response_time_ms'))['response_time_ms__avg']
-    avg_response_time = round(avg_latency, 2) if avg_latency else 0
+    # Monitor counts in one query
+    monitor_agg = user_monitors.aggregate(
+        active_monitors=Count('id', filter=Q(is_active=True)),
+    )
+    active_monitors = monitor_agg['active_monitors']
 
-    slowest_monitors = []
-    monitors_avg_latency = all_logs_7d.filter(is_up=True, response_time_ms__isnull=False) \
-        .values('monitor__id', 'monitor__name') \
-        .annotate(avg_latency=Avg('response_time_ms')) \
+    # Slowest monitors in one grouped query
+    monitors_avg_latency = (
+        base_qs
+        .filter(is_up=True, response_time_ms__isnull=False)
+        .values('monitor__id', 'monitor__name')
+        .annotate(avg_latency=Avg('response_time_ms'))
         .order_by('-avg_latency')[:5]
+    )
+    slowest_monitors = [
+        {'id': item['monitor__id'], 'name': item['monitor__name'], 'avg_latency': round(item['avg_latency'], 2)}
+        for item in monitors_avg_latency
+    ]
 
-    for item in monitors_avg_latency:
-        slowest_monitors.append({
-            'id': item['monitor__id'],
-            'name': item['monitor__name'],
-            'avg_latency': round(item['avg_latency'], 2)
-        })
+    active_incidents_count = Incident.objects.filter(
+        monitor__user=request.user, resolved_at__isnull=True
+    ).count()
 
-    active_incidents_count = Incident.objects.filter(monitor__user=request.user, resolved_at__isnull=True).count()
+    # DB-level hour extraction for the heatmap — avoids loading rows into Python
+    heatmap_qs = (
+        base_qs
+        .filter(is_up=False)
+        .annotate(hour=ExtractHour('checked_at'))
+        .values('hour')
+        .annotate(count=Count('id'))
+        .order_by('hour')
+    )
+    heatmap_lookup = {row['hour']: row['count'] for row in heatmap_qs}
+    heatmap_data = [{'hour': h, 'count': heatmap_lookup.get(h, 0)} for h in range(24)]
 
-    downtime_logs = all_logs_7d.filter(is_up=False).only('checked_at')
-    heatmap = {h: 0 for h in range(24)}
-    for log in downtime_logs:
-        heatmap[log.checked_at.hour] += 1
-
-    heatmap_data = [{'hour': h, 'count': count} for h, count in heatmap.items()]
-
-    return Response({
+    payload = {
         'total_monitors': total_monitors,
         'active_monitors': active_monitors,
         'overall_sla': overall_sla,
         'avg_response_time': avg_response_time,
         'slowest_monitors': slowest_monitors,
         'active_incidents_count': active_incidents_count,
-        'hourly_heatmap': heatmap_data
-    })
+        'hourly_heatmap': heatmap_data,
+    }
+    cache.set(cache_key, payload, timeout=30)
+    return Response(payload)
 
 
 class MaintenanceWindowViewSet(viewsets.ModelViewSet):
@@ -520,11 +592,17 @@ def _user_apm_summaries(request):
 @permission_classes([IsAuthenticated])
 def apm_analytics(request):
     """Overview cards for the APM dashboard."""
-    summaries = _user_apm_summaries(request)
     try:
         hours = int(request.query_params.get('hours', 24))
     except (TypeError, ValueError):
         hours = 24
+    application_id = request.query_params.get('application_id', '')
+    cache_key = f'apm_analytics:{request.user.id}:{hours}:{application_id}'
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return Response(cached)
+
+    summaries = _user_apm_summaries(request)
     rows = list(summaries.values(
         'requests_count', 'avg_response_time', 'error_rate', 'p95_latency', 'p99_latency'
     ))
@@ -541,23 +619,28 @@ def apm_analytics(request):
         avg_response_time = 0
         error_rate = 0
 
-    raw_metrics = ApiMetric.objects.filter(
+    # Single conditional aggregate for APDEX: replaces 3 separate count queries
+    apdex_threshold = 200
+    raw_metrics_qs = ApiMetric.objects.filter(
         application__user=request.user,
         timestamp__gte=timezone.now() - timedelta(hours=max(min(hours, 24 * 30), 1)),
     )
-    application_id = request.query_params.get('application_id')
     if application_id:
-        raw_metrics = raw_metrics.filter(application_id=application_id)
-    apdex_threshold = 200
-    raw_total = raw_metrics.count()
-    satisfied = raw_metrics.filter(response_time_ms__lte=apdex_threshold).count()
-    tolerating = raw_metrics.filter(
-        response_time_ms__gt=apdex_threshold,
-        response_time_ms__lte=apdex_threshold * 4,
-    ).count()
+        raw_metrics_qs = raw_metrics_qs.filter(application_id=application_id)
+    apdex_agg = raw_metrics_qs.aggregate(
+        raw_total=Count('id'),
+        satisfied=Count('id', filter=Q(response_time_ms__lte=apdex_threshold)),
+        tolerating=Count('id', filter=Q(
+            response_time_ms__gt=apdex_threshold,
+            response_time_ms__lte=apdex_threshold * 4,
+        )),
+    )
+    raw_total = apdex_agg['raw_total'] or 0
+    satisfied = apdex_agg['satisfied'] or 0
+    tolerating = apdex_agg['tolerating'] or 0
     apdex_score = round((satisfied + tolerating / 2) / raw_total, 2) if raw_total else None
 
-    return Response({
+    payload = {
         'total_requests': total_requests,
         'average_response_time': round(avg_response_time, 2),
         'error_rate': round(error_rate, 2),
@@ -566,13 +649,25 @@ def apm_analytics(request):
         'p99_latency': round(max([row['p99_latency'] for row in rows], default=0), 2),
         'apdex_score': apdex_score,
         'apdex_threshold_ms': apdex_threshold,
-    })
+    }
+    _cache_set(cache_key, payload, timeout=30)
+    return Response(payload)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def apm_endpoints(request):
     """Endpoint-level APM analytics."""
+    try:
+        hours = int(request.query_params.get('hours', 24))
+    except (TypeError, ValueError):
+        hours = 24
+    application_id = request.query_params.get('application_id', '')
+    cache_key = f'apm_endpoints:{request.user.id}:{hours}:{application_id}'
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return Response(cached)
+
     data = _user_apm_summaries(request).values('endpoint').annotate(
         requests_count=Sum('requests_count'),
         avg_response_time=Avg('avg_response_time'),
@@ -581,7 +676,7 @@ def apm_endpoints(request):
         error_rate=Avg('error_rate'),
     ).order_by('-requests_count')[:25]
 
-    return Response([
+    payload = [
         {
             'endpoint': row['endpoint'],
             'requests_count': row['requests_count'],
@@ -591,20 +686,32 @@ def apm_endpoints(request):
             'error_rate': round(row['error_rate'] or 0, 2),
         }
         for row in data
-    ])
+    ]
+    _cache_set(cache_key, payload, timeout=30)
+    return Response(payload)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def apm_traffic(request):
     """Minute traffic and latency trend series."""
+    try:
+        hours = int(request.query_params.get('hours', 24))
+    except (TypeError, ValueError):
+        hours = 24
+    application_id = request.query_params.get('application_id', '')
+    cache_key = f'apm_traffic:{request.user.id}:{hours}:{application_id}'
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return Response(cached)
+
     data = _user_apm_summaries(request).values('minute_bucket').annotate(
         requests_count=Sum('requests_count'),
         avg_response_time=Avg('avg_response_time'),
         error_rate=Avg('error_rate'),
     ).order_by('minute_bucket')
 
-    return Response([
+    payload = [
         {
             'timestamp': row['minute_bucket'].isoformat(),
             'requests_count': row['requests_count'],
@@ -612,7 +719,9 @@ def apm_traffic(request):
             'error_rate': round(row['error_rate'] or 0, 2),
         }
         for row in data
-    ])
+    ]
+    _cache_set(cache_key, payload, timeout=30)
+    return Response(payload)
 
 
 @api_view(['GET'])

@@ -45,49 +45,57 @@ class MonitorSerializer(serializers.ModelSerializer):
             'status_changed_at', 'created_at', 'ssl_expiry', 'ssl_issuer', 'current_status'
         )
 
-    def _get_prefetched_logs(self, obj):
-        if hasattr(obj, 'prefetched_logs'):
-            return obj.prefetched_logs
-        if not hasattr(obj, '_cached_logs_db'):
-            obj._cached_logs_db = list(obj.logs.order_by('-checked_at')[:100])
-        return obj._cached_logs_db
-
     def get_is_up(self, obj):
-        logs = self._get_prefetched_logs(obj)
-        return logs[0].is_up if logs else None
+        if hasattr(obj, 'latest_is_up'):
+            return obj.latest_is_up
+        log = obj.logs.first()
+        return log.is_up if log else None
 
     def get_last_checked(self, obj):
-        logs = self._get_prefetched_logs(obj)
-        return logs[0].checked_at if logs else None
+        if hasattr(obj, 'latest_checked'):
+            return obj.latest_checked
+        log = obj.logs.first()
+        return log.checked_at if log else None
 
     def get_last_response_time(self, obj):
-        logs = self._get_prefetched_logs(obj)
-        return logs[0].response_time_ms if logs else None
+        if hasattr(obj, 'latest_response_time'):
+            return obj.latest_response_time
+        log = obj.logs.first()
+        return log.response_time_ms if log else None
 
     def get_last_status_code(self, obj):
-        logs = self._get_prefetched_logs(obj)
-        return logs[0].status_code if logs else None
+        if hasattr(obj, 'latest_status_code'):
+            return obj.latest_status_code
+        log = obj.logs.first()
+        return log.status_code if log else None
 
     def get_status_changed_at(self, obj):
-        logs = self._get_prefetched_logs(obj)
-        if not logs:
-            return obj.created_at
-        
-        current_status = logs[0].is_up
-        last_consecutive_log = logs[0]
-        for log in logs[1:]:
-            if log.is_up != current_status:
-                break
-            last_consecutive_log = log
-            
-        return last_consecutive_log.checked_at
+        latest_is_up = getattr(obj, 'latest_is_up', None)
+        if latest_is_up is None:
+            log = obj.logs.first()
+            if not log:
+                return obj.created_at
+            latest_is_up = log.is_up
+
+        # Find the latest check that had a different status
+        last_diff_log = obj.logs.filter(is_up=not latest_is_up).order_by('-checked_at').first()
+        if not last_diff_log:
+            # If no different status exists, the status has never transitioned
+            first_log = obj.logs.order_by('checked_at').first()
+            return first_log.checked_at if first_log else obj.created_at
+
+        # Transition happened at the first log with current status after that change
+        transition_log = obj.logs.filter(is_up=latest_is_up, checked_at__gt=last_diff_log.checked_at).order_by('checked_at').first()
+        return transition_log.checked_at if transition_log else last_diff_log.checked_at
 
     def get_current_status(self, obj):
         if not obj.is_active:
             return 'paused'
-        logs = self._get_prefetched_logs(obj)
-        if logs:
-            return logs[0].status
+        if hasattr(obj, 'latest_status'):
+            return obj.latest_status or 'unknown'
+        log = obj.logs.first()
+        if log:
+            return log.status
         return 'unknown'
 
 

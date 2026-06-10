@@ -150,6 +150,20 @@ GOOGLE_CLIENT_ID = os.environ.get(
 
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+
+# Django cache backend – uses the same Redis instance, DB 1 to avoid key collisions
+_redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': _redis_url,
+        'OPTIONS': {
+            'db': 1,
+        },
+        'KEY_PREFIX': 'pingbeat',
+        'TIMEOUT': 300,  # default 5 minutes; individual cache.set() calls override this
+    }
+}
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
@@ -181,6 +195,8 @@ if CELERY_BROKER_URL.startswith('rediss://'):
     CELERY_REDIS_BACKEND_USE_SSL = {
         'ssl_cert_reqs': ssl.CERT_NONE
     }
+    # Also configure the Django cache backend for TLS Redis
+    CACHES['default']['OPTIONS']['ssl_cert_reqs'] = ssl.CERT_NONE
 
 
 # Internationalization

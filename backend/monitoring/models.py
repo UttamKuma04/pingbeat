@@ -90,6 +90,10 @@ class MonitorLog(models.Model):
 
     class Meta:
         ordering = ['-checked_at']
+        indexes = [
+            models.Index(fields=['monitor', 'checked_at']),
+            models.Index(fields=['checked_at']),
+        ]
 
     def __str__(self):
         status_str = self.status.upper() if hasattr(self, 'status') else ('UP' if self.is_up else 'DOWN')
