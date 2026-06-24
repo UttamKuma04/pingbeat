@@ -43,15 +43,15 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://pingbeat-3.onrender.com/api/:path*"
+      "destination": "https://pingbeat-ec9s.onrender.com/api/:path*"
     },
     {
       "source": "/sitemap.xml",
-      "destination": "https://pingbeat-3.onrender.com/sitemap.xml"
+      "destination": "https://pingbeat-ec9s.onrender.com/sitemap.xml"
     },
     {
       "source": "/robots.txt",
-      "destination": "https://pingbeat-3.onrender.com/robots.txt"
+      "destination": "https://pingbeat-ec9s.onrender.com/robots.txt"
     },
     {
       "source": "/(.*)",
