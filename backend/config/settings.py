@@ -149,7 +149,8 @@ GOOGLE_CLIENT_ID = os.environ.get(
 
 
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_RESULT_BACKEND = None
+CELERY_TASK_IGNORE_RESULT = True
 
 # Django cache backend – uses the same Redis instance, DB 1 to avoid key collisions
 _redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
