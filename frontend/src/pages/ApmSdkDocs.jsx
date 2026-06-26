@@ -10,6 +10,7 @@ const navSections = [
   ['quick-start', 'Quick Start'],
   ['configuration', 'Configuration'],
   ['payload', 'Payload Format'],
+  ['openapi', 'OpenAPI & Swagger'],
   ['rate-limits', 'Rate Limits'],
   ['frameworks', 'Framework Setup'],
   ['verify', 'Verify Integration'],
@@ -146,6 +147,446 @@ const skipBlock = [
   '    excluded_paths=("/health", "/readyz", "/static", "/favicon.ico")',
   ')',
 ].join('\n')
+
+const swaggerImportBlock = [
+  'Open https://editor.swagger.io/',
+  'Paste the OpenAPI JSON from this page.',
+  'Use Authorize when trying endpoints:',
+  '  ApiKeyAuth: pb_your_api_key_here',
+  '  BearerAuth: JWT access token',
+].join('\n')
+
+const apiEndpointRows = [
+  ['POST', '/api/apm/ingest/', 'X-API-Key', 'Send SDK metric batches.'],
+  ['GET', '/api/apm/applications/', 'Bearer JWT', 'List APM applications.'],
+  ['POST', '/api/apm/applications/', 'Bearer JWT', 'Create an APM application and API key.'],
+  ['GET', '/api/apm/applications/{id}/', 'Bearer JWT', 'Read one APM application.'],
+  ['DELETE', '/api/apm/applications/{id}/', 'Bearer JWT', 'Delete an APM application.'],
+  ['POST', '/api/apm/applications/{id}/rotate-key/', 'Bearer JWT', 'Rotate an application API key.'],
+  ['GET', '/api/apm/analytics/', 'Bearer JWT', 'Fetch dashboard summary metrics.'],
+  ['GET', '/api/apm/endpoints/', 'Bearer JWT', 'Fetch endpoint-level metrics.'],
+  ['GET', '/api/apm/traffic/', 'Bearer JWT', 'Fetch traffic and latency time series.'],
+  ['GET', '/api/apm/errors/', 'Bearer JWT', 'Fetch error breakdowns.'],
+]
+
+const apmQueryParameters = [
+  {
+    name: 'hours',
+    in: 'query',
+    required: false,
+    schema: { type: 'integer', minimum: 1, maximum: 720, default: 24 },
+    description: 'Time range in hours. Values above 720 are capped by the API.',
+  },
+  {
+    name: 'application_id',
+    in: 'query',
+    required: false,
+    schema: { type: 'integer' },
+    description: 'Filter results to one APM application.',
+  },
+]
+
+const openApiSpec = {
+  openapi: '3.0.3',
+  info: {
+    title: 'PingBEAT APM API',
+    version: '1.0.0',
+    description: 'OpenAPI definition for PingBEAT APM ingestion and dashboard endpoints.',
+  },
+  servers: [
+    {
+      url: 'https://api.pingbeat.in/api',
+      description: 'Production API',
+    },
+  ],
+  tags: [
+    { name: 'APM Ingest', description: 'SDK metric ingestion' },
+    { name: 'APM Applications', description: 'Application API key management' },
+    { name: 'APM Analytics', description: 'Dashboard analytics data' },
+  ],
+  paths: {
+    '/apm/ingest/': {
+      post: {
+        tags: ['APM Ingest'],
+        summary: 'Ingest APM metrics',
+        description: 'Accepts up to 1000 request metrics per request. Authenticate with the X-API-Key header or the api_key request field.',
+        security: [{ ApiKeyAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { '$ref': '#/components/schemas/ApmIngestRequest' },
+              example: {
+                metrics: [
+                  {
+                    endpoint: '/api/orders',
+                    method: 'GET',
+                    status_code: 200,
+                    response_time_ms: 42.5,
+                    timestamp: '2026-06-01T12:00:00.000Z',
+                    error_message: '',
+                  },
+                ],
+              },
+            },
+          },
+        },
+        responses: {
+          202: {
+            description: 'Metrics accepted for processing.',
+            headers: {
+              'X-RateLimit-Limit': { schema: { type: 'integer' } },
+              'X-RateLimit-Remaining': { schema: { type: 'integer' } },
+              'X-RateLimit-Window': { schema: { type: 'integer' } },
+            },
+            content: {
+              'application/json': {
+                schema: { '$ref': '#/components/schemas/ApmIngestAccepted' },
+                example: {
+                  status: 'accepted',
+                  application_id: 1,
+                  queued_metrics: 1,
+                },
+              },
+            },
+          },
+          400: { '$ref': '#/components/responses/BadRequest' },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+          429: { '$ref': '#/components/responses/RateLimited' },
+        },
+      },
+    },
+    '/apm/applications/': {
+      get: {
+        tags: ['APM Applications'],
+        summary: 'List APM applications',
+        security: [{ BearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Applications owned by the authenticated user.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: { '$ref': '#/components/schemas/Application' },
+                },
+              },
+            },
+          },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+      post: {
+        tags: ['APM Applications'],
+        summary: 'Create an APM application',
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { '$ref': '#/components/schemas/ApplicationCreate' },
+              example: { name: 'Orders API', environment: 'production' },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Application created.',
+            content: {
+              'application/json': {
+                schema: { '$ref': '#/components/schemas/Application' },
+              },
+            },
+          },
+          400: { '$ref': '#/components/responses/BadRequest' },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/apm/applications/{id}/': {
+      get: {
+        tags: ['APM Applications'],
+        summary: 'Get an APM application',
+        security: [{ BearerAuth: [] }],
+        parameters: [{ '$ref': '#/components/parameters/IdPath' }],
+        responses: {
+          200: {
+            description: 'Application details.',
+            content: {
+              'application/json': {
+                schema: { '$ref': '#/components/schemas/Application' },
+              },
+            },
+          },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+          404: { '$ref': '#/components/responses/NotFound' },
+        },
+      },
+      delete: {
+        tags: ['APM Applications'],
+        summary: 'Delete an APM application',
+        security: [{ BearerAuth: [] }],
+        parameters: [{ '$ref': '#/components/parameters/IdPath' }],
+        responses: {
+          204: { description: 'Application deleted.' },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+          404: { '$ref': '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/apm/applications/{id}/rotate-key/': {
+      post: {
+        tags: ['APM Applications'],
+        summary: 'Rotate an APM API key',
+        security: [{ BearerAuth: [] }],
+        parameters: [{ '$ref': '#/components/parameters/IdPath' }],
+        responses: {
+          200: {
+            description: 'Application with a new api_key value.',
+            content: {
+              'application/json': {
+                schema: { '$ref': '#/components/schemas/Application' },
+              },
+            },
+          },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+          404: { '$ref': '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/apm/analytics/': {
+      get: {
+        tags: ['APM Analytics'],
+        summary: 'Get APM dashboard summary',
+        security: [{ BearerAuth: [] }],
+        parameters: apmQueryParameters,
+        responses: {
+          200: {
+            description: 'Dashboard summary metrics.',
+            content: {
+              'application/json': {
+                schema: { '$ref': '#/components/schemas/ApmAnalytics' },
+              },
+            },
+          },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/apm/endpoints/': {
+      get: {
+        tags: ['APM Analytics'],
+        summary: 'Get endpoint metrics',
+        security: [{ BearerAuth: [] }],
+        parameters: apmQueryParameters,
+        responses: {
+          200: {
+            description: 'Top endpoint metrics.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: { '$ref': '#/components/schemas/ApmEndpoint' },
+                },
+              },
+            },
+          },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/apm/traffic/': {
+      get: {
+        tags: ['APM Analytics'],
+        summary: 'Get traffic time series',
+        security: [{ BearerAuth: [] }],
+        parameters: apmQueryParameters,
+        responses: {
+          200: {
+            description: 'Minute-bucket traffic and latency points.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: { '$ref': '#/components/schemas/ApmTrafficPoint' },
+                },
+              },
+            },
+          },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/apm/errors/': {
+      get: {
+        tags: ['APM Analytics'],
+        summary: 'Get APM error breakdowns',
+        security: [{ BearerAuth: [] }],
+        parameters: apmQueryParameters,
+        responses: {
+          200: {
+            description: 'Error totals, groups, and recent errors.',
+            content: {
+              'application/json': {
+                schema: { '$ref': '#/components/schemas/ApmErrors' },
+              },
+            },
+          },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+  },
+  components: {
+    securitySchemes: {
+      ApiKeyAuth: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-API-Key',
+      },
+      BearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+      },
+    },
+    parameters: {
+      IdPath: {
+        name: 'id',
+        in: 'path',
+        required: true,
+        schema: { type: 'integer' },
+      },
+    },
+    responses: {
+      BadRequest: {
+        description: 'Validation error.',
+        content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } },
+      },
+      Unauthorized: {
+        description: 'Missing or invalid credentials.',
+        content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } },
+      },
+      NotFound: {
+        description: 'Resource not found.',
+        content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } },
+      },
+      RateLimited: {
+        description: 'Rate limit exceeded.',
+        content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } },
+      },
+    },
+    schemas: {
+      ApplicationCreate: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', maxLength: 255 },
+          environment: { type: 'string', maxLength: 100, default: 'production' },
+        },
+      },
+      Application: {
+        allOf: [
+          { '$ref': '#/components/schemas/ApplicationCreate' },
+          {
+            type: 'object',
+            properties: {
+              id: { type: 'integer' },
+              api_key: { type: 'string', example: 'pb_your_api_key_here' },
+              created_at: { type: 'string', format: 'date-time' },
+              metrics_count: { type: 'integer' },
+            },
+          },
+        ],
+      },
+      ApmIngestMetric: {
+        type: 'object',
+        required: ['endpoint', 'method', 'status_code', 'response_time_ms', 'timestamp'],
+        properties: {
+          endpoint: { type: 'string', maxLength: 512, example: '/api/orders' },
+          method: { type: 'string', maxLength: 10, example: 'GET' },
+          status_code: { type: 'integer', minimum: 100, maximum: 599, example: 200 },
+          response_time_ms: { type: 'number', minimum: 0, example: 42.5 },
+          timestamp: { type: 'string', format: 'date-time' },
+          error_message: { type: 'string', nullable: true, maxLength: 2000 },
+        },
+      },
+      ApmIngestRequest: {
+        type: 'object',
+        required: ['metrics'],
+        properties: {
+          api_key: { type: 'string', description: 'Optional when X-API-Key header is present.' },
+          metrics: {
+            type: 'array',
+            minItems: 1,
+            maxItems: 1000,
+            items: { '$ref': '#/components/schemas/ApmIngestMetric' },
+          },
+        },
+      },
+      ApmIngestAccepted: {
+        type: 'object',
+        properties: {
+          status: { type: 'string', example: 'accepted' },
+          application_id: { type: 'integer' },
+          queued_metrics: { type: 'integer' },
+        },
+      },
+      ApmAnalytics: {
+        type: 'object',
+        properties: {
+          total_requests: { type: 'integer' },
+          average_response_time: { type: 'number' },
+          error_rate: { type: 'number' },
+          active_applications: { type: 'integer' },
+          p95_latency: { type: 'number' },
+          p99_latency: { type: 'number' },
+          apdex_score: { type: 'number', nullable: true },
+          apdex_threshold_ms: { type: 'integer' },
+        },
+      },
+      ApmEndpoint: {
+        type: 'object',
+        properties: {
+          endpoint: { type: 'string' },
+          requests_count: { type: 'integer' },
+          avg_response_time: { type: 'number' },
+          p95_latency: { type: 'number' },
+          p99_latency: { type: 'number' },
+          error_rate: { type: 'number' },
+        },
+      },
+      ApmTrafficPoint: {
+        type: 'object',
+        properties: {
+          timestamp: { type: 'string', format: 'date-time' },
+          requests_count: { type: 'integer' },
+          avg_response_time: { type: 'number' },
+          error_rate: { type: 'number' },
+        },
+      },
+      ApmErrors: {
+        type: 'object',
+        properties: {
+          total_errors: { type: 'integer' },
+          by_status_code: { type: 'array', items: { type: 'object' } },
+          top_error_endpoints: { type: 'array', items: { type: 'object' } },
+          error_groups: { type: 'array', items: { type: 'object' } },
+          recent_errors: { type: 'array', items: { type: 'object' } },
+        },
+      },
+      ErrorResponse: {
+        type: 'object',
+        properties: {
+          error: { type: 'string' },
+          detail: { type: 'string' },
+        },
+      },
+    },
+  },
+}
+
+const openApiSpecBlock = JSON.stringify(openApiSpec, null, 2)
 
 
 function ApmSdkDocs() {
@@ -308,6 +749,31 @@ function ApmSdkDocs() {
             />
           </DocSection>
 
+          <DocSection id="openapi" title="OpenAPI & Swagger">
+            <p className="text-sm leading-6 text-slate-600">
+              The APM API can be tested from Swagger tools with this OpenAPI 3.0 definition. The server URL is <code>https://api.pingbeat.in/api</code>, so paths below are relative to that base.
+            </p>
+            <ApiEndpointTable rows={apiEndpointRows} />
+            <div className="mt-6 overflow-hidden rounded border border-slate-200 bg-slate-50">
+              <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-slate-950">OpenAPI JSON</h3>
+                  <p className="mt-1 text-sm text-slate-600">Copy this into Swagger Editor or load it in Swagger UI.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyText('openapi-json', openApiSpecBlock)}
+                  className="w-fit rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-slate-400"
+                >
+                  {copiedKey === 'openapi-json' ? 'Copied' : 'Copy JSON'}
+                </button>
+              </div>
+              <pre className="max-h-[420px] overflow-auto p-4 text-xs leading-5 text-slate-800">
+                <code>{openApiSpecBlock}</code>
+              </pre>
+            </div>
+          </DocSection>
+
           <DocSection id="rate-limits" title="Rate Limits">
             <p className="text-sm leading-6 text-slate-600">
               The ingest API is rate-limited per API key. SDK clients should batch metrics and inspect response headers if they receive HTTP 429.
@@ -382,6 +848,7 @@ function ApmSdkDocs() {
             <ExampleSection title="Environment" code={envBlock} codeKey="env" copiedKey={copiedKey} onCopy={copyText} />
             <ExampleSection title="Payload" code={payloadBlock} codeKey="payload" copiedKey={copiedKey} onCopy={copyText} />
             <ExampleSection title="Rate Limit Headers" code={rateLimitBlock} codeKey="rate-limits" copiedKey={copiedKey} onCopy={copyText} />
+            <ExampleSection title="Swagger Import" code={swaggerImportBlock} codeKey="swagger-import" copiedKey={copiedKey} onCopy={copyText} />
             <ExampleSection title={`${example.label} Example`} code={example.setup} codeKey={`${activeExample}-setup`} copiedKey={copiedKey} onCopy={copyText} />
             {example.attach && (
               <ExampleSection title="Attach" code={example.attach} codeKey={`${activeExample}-attach`} copiedKey={copiedKey} onCopy={copyText} />
@@ -390,6 +857,37 @@ function ApmSdkDocs() {
           </div>
         </aside>
       </div>
+    </div>
+  )
+}
+
+function ApiEndpointTable({ rows }) {
+  return (
+    <div className="mt-5 overflow-x-auto border-y border-slate-200">
+      <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <thead>
+          <tr className="text-left text-xs font-bold uppercase tracking-wider text-slate-400">
+            <th className="py-3 pr-4">Method</th>
+            <th className="py-3 pr-4">Path</th>
+            <th className="py-3 pr-4">Auth</th>
+            <th className="py-3">Use</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map(([method, path, auth, summary]) => (
+            <tr key={`${method}-${path}`}>
+              <td className="whitespace-nowrap py-3 pr-4">
+                <span className="inline-flex min-w-16 justify-center rounded bg-emerald-50 px-2 py-1 font-mono text-xs font-bold text-emerald-700">
+                  {method}
+                </span>
+              </td>
+              <td className="whitespace-nowrap py-3 pr-4 font-mono text-xs font-semibold text-slate-800">{path}</td>
+              <td className="whitespace-nowrap py-3 pr-4 text-slate-600">{auth}</td>
+              <td className="py-3 text-slate-600">{summary}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

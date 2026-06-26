@@ -5,12 +5,10 @@ from django.contrib.auth.models import User
 
 
 def generate_api_key():
-    """Generate a compact PingBEAT SDK API key."""
     return f"pb_{secrets.token_urlsafe(32)}"
 
 
 class Monitor(models.Model):
-    """A URL monitor that checks if a website is up."""
     HTTP_METHOD_CHOICES = [
         ('GET', 'GET'),
         ('POST', 'POST'),
@@ -36,12 +34,10 @@ class Monitor(models.Model):
     email_alerts = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # Advanced HTTP options
     http_method = models.CharField(max_length=10, choices=HTTP_METHOD_CHOICES, default='GET')
     headers = models.JSONField(default=dict, blank=True)
     body = models.TextField(blank=True, default='')
 
-    # Keyword check
     keyword = models.CharField(max_length=255, blank=True, null=True)
 
     # Custom alerts
@@ -73,7 +69,6 @@ class Monitor(models.Model):
 
 
 class MonitorLog(models.Model):
-    """A log entry for a monitor check."""
     monitor = models.ForeignKey(Monitor, on_delete=models.CASCADE, related_name='logs')
     status_code = models.IntegerField(null=True, blank=True)
     response_time_ms = models.FloatField(null=True, blank=True)
@@ -101,7 +96,6 @@ class MonitorLog(models.Model):
 
 
 class Incident(models.Model):
-    """A downtime incident for a monitor."""
     monitor = models.ForeignKey(Monitor, on_delete=models.CASCADE, related_name='incidents')
     started_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
@@ -192,7 +186,6 @@ class ApiMetric(models.Model):
 
 
 class ApiMetricSummary(models.Model):
-    """Minute-level API metric rollup used by APM dashboard APIs."""
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='api_metric_summaries')
     endpoint = models.CharField(max_length=512)
     requests_count = models.IntegerField(default=0)

@@ -10,9 +10,7 @@ from .models import (
     ApiMetricSummary,
 )
 
-
 class MonitorLogSerializer(serializers.ModelSerializer):
-    """Serializer for monitor log entries."""
     class Meta:
         model = MonitorLog
         fields = ('id', 'monitor', 'status_code', 'response_time_ms', 'is_up', 'error_message', 'checked_at',
@@ -21,7 +19,6 @@ class MonitorLogSerializer(serializers.ModelSerializer):
 
 
 class MonitorSerializer(serializers.ModelSerializer):
-    """Serializer for monitors with computed status fields and advanced config options."""
     is_up = serializers.SerializerMethodField()
     last_checked = serializers.SerializerMethodField()
     last_response_time = serializers.SerializerMethodField()
@@ -77,14 +74,11 @@ class MonitorSerializer(serializers.ModelSerializer):
                 return obj.created_at
             latest_is_up = log.is_up
 
-        # Find the latest check that had a different status
         last_diff_log = obj.logs.filter(is_up=not latest_is_up).order_by('-checked_at').first()
         if not last_diff_log:
-            # If no different status exists, the status has never transitioned
             first_log = obj.logs.order_by('checked_at').first()
             return first_log.checked_at if first_log else obj.created_at
 
-        # Transition happened at the first log with current status after that change
         transition_log = obj.logs.filter(is_up=latest_is_up, checked_at__gt=last_diff_log.checked_at).order_by('checked_at').first()
         return transition_log.checked_at if transition_log else last_diff_log.checked_at
 
@@ -118,7 +112,6 @@ class StatusPageSerializer(serializers.ModelSerializer):
 
 
 class MaintenanceWindowSerializer(serializers.ModelSerializer):
-    """Serializer for maintenance windows."""
     monitor_name = serializers.CharField(source='monitor.name', read_only=True)
 
     class Meta:
@@ -128,7 +121,6 @@ class MaintenanceWindowSerializer(serializers.ModelSerializer):
 
 
 class ApplicationSerializer(serializers.ModelSerializer):
-    """Serializer for SDK-instrumented applications."""
     metrics_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -141,7 +133,6 @@ class ApplicationSerializer(serializers.ModelSerializer):
 
 
 class ApiMetricSerializer(serializers.ModelSerializer):
-    """Serializer for raw API metrics."""
     application_name = serializers.CharField(source='application.name', read_only=True)
 
     class Meta:
@@ -154,7 +145,6 @@ class ApiMetricSerializer(serializers.ModelSerializer):
 
 
 class ApiMetricSummarySerializer(serializers.ModelSerializer):
-    """Serializer for minute-level API metric summaries."""
     class Meta:
         model = ApiMetricSummary
         fields = (
@@ -165,7 +155,6 @@ class ApiMetricSummarySerializer(serializers.ModelSerializer):
 
 
 class ApiMetricIngestItemSerializer(serializers.Serializer):
-    """Validate one SDK metric inside a batch."""
     endpoint = serializers.CharField(max_length=512)
     method = serializers.CharField(max_length=10)
     status_code = serializers.IntegerField(min_value=100, max_value=599)
@@ -178,7 +167,6 @@ class ApiMetricIngestItemSerializer(serializers.Serializer):
 
 
 class ApiMetricIngestSerializer(serializers.Serializer):
-    """Validate one SDK batch."""
     api_key = serializers.CharField(max_length=80, required=False, allow_blank=True)
     metrics = ApiMetricIngestItemSerializer(many=True)
 

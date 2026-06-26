@@ -38,11 +38,6 @@ from .tasks import aggregate_apm_metrics, process_apm_metrics
 MAX_MONITORS_PER_USER = 10
 MAX_APM_APPLICATIONS_PER_USER = 5
 
-
-# ---------------------------------------------------------------------------
-# Safe cache helpers — gracefully fall back to no-op when Redis is unavailable
-# (e.g. running locally without a Redis instance).
-# ---------------------------------------------------------------------------
 def _cache_get(key):
     try:
         return cache.get(key)

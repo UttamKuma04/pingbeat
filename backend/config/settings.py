@@ -168,24 +168,60 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
-# Robust connection parameters for remote/free Redis (Render, etc.)
+# Suppress Celery 5.1 CPendingDeprecationWarning – opt in to the safe behaviour now
+CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = True
+
+# ---------------------------------------------------------------------------
+# Robust connection parameters for remote Redis (Render free-tier, etc.)
+#
+# Root cause of periodic "Connection closed by server" errors:
+# Render's Redis proxy silently kills TCP connections that are idle for
+# ~5-30 minutes.  The fixes below keep the connection alive:
+#   1. socket_keepalive + socket_keepalive_options  → OS-level TCP keepalive
+#      probes are sent every 60 s so the proxy never sees an idle connection.
+#   2. health_check_interval=10  → redis-py pings the server every 10 s on
+#      connections in the connection pool.
+# ---------------------------------------------------------------------------
+import socket as _socket
+
+_KEEPALIVE_OPTIONS = {}
+try:
+    # Linux only – set aggressive keepalive timers
+    _KEEPALIVE_OPTIONS[_socket.TCP_KEEPIDLE] = 60   # start probes after 60 s idle
+    _KEEPALIVE_OPTIONS[_socket.TCP_KEEPINTVL] = 10  # re-probe every 10 s
+    _KEEPALIVE_OPTIONS[_socket.TCP_KEEPCNT] = 5     # drop after 5 missed probes
+except AttributeError:
+    pass  # Windows / macOS – keepalive enabled at OS level via TCP_NODELAY
+
 CELERY_BROKER_TRANSPORT_OPTIONS = {
     'health_check_interval': 10,
     'visibility_timeout': 3600,
     'socket_timeout': 30,
     'socket_connect_timeout': 30,
     'retry_on_timeout': True,
+    'socket_keepalive': True,
+    'socket_keepalive_options': _KEEPALIVE_OPTIONS,
 }
 CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = {
     'health_check_interval': 10,
     'socket_timeout': 30,
     'socket_connect_timeout': 30,
     'retry_on_timeout': True,
+    'socket_keepalive': True,
+    'socket_keepalive_options': _KEEPALIVE_OPTIONS,
 }
 
 CELERY_REDIS_SOCKET_TIMEOUT = 30
 CELERY_REDIS_SOCKET_CONNECT_TIMEOUT = 30
 CELERY_REDIS_SOCKET_KEEPALIVE = True
+CELERY_REDIS_SOCKET_KEEPALIVE_OPTIONS = _KEEPALIVE_OPTIONS
+
+# Also patch the Django cache connection pool with the same keepalive options
+CACHES['default']['OPTIONS'].update({
+    'socket_keepalive': True,
+    'socket_keepalive_options': _KEEPALIVE_OPTIONS,
+    'health_check_interval': 30,
+})
 
 if CELERY_BROKER_URL.startswith('rediss://'):
     import ssl

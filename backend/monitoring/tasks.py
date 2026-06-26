@@ -18,7 +18,6 @@ from .models import Monitor, MonitorLog, Incident, MaintenanceWindow, ApiMetric,
 
 
 def percentile(values, percentile_rank):
-    """Return a nearest-rank percentile for a non-empty list of numbers."""
     if not values:
         return 0
     sorted_values = sorted(values)
@@ -27,7 +26,6 @@ def percentile(values, percentile_rank):
 
 
 def check_ssl_expiry(url_str):
-    """Fetch SSL certificate expiry date and issuer name for a URL."""
     try:
         parsed = urllib.parse.urlparse(url_str)
         if parsed.scheme != 'https':
@@ -37,7 +35,6 @@ def check_ssl_expiry(url_str):
         if not hostname:
             return None, None
         
-        # Strip port if present in hostname
         if ':' in hostname:
             hostname = hostname.split(':')[0]
 
@@ -68,7 +65,6 @@ def check_ssl_expiry(url_str):
 
 @shared_task
 def check_monitors():
-    """Check all active monitors that are due, log results, check SSL, manage incidents, and trigger alerts."""
     monitors = Monitor.objects.filter(is_active=True)
     results = []
     now = timezone.now()
@@ -139,13 +135,11 @@ def check_monitors():
             response_time_ms = (time.time() - start_time) * 1000
             status_code = response.status_code
             
-            # 1. Assert Status Code (expected_status serves as assert_status_code)
             is_up = status_code == monitor.expected_status
             if not is_up:
                 failure_reason = f"Status code assertion failed: expected {monitor.expected_status}, got {status_code}"
                 error_message = failure_reason
             
-            # 2. Assert Keyword (new assert_keyword takes priority, keyword is fallback)
             keyword_to_check = monitor.assert_keyword or monitor.keyword
             if is_up and keyword_to_check:
                 if keyword_to_check not in response.text:
@@ -182,14 +176,11 @@ def check_monitors():
         )
         results.append(f'{monitor.name}: {"UP" if is_up else "DOWN"}')
 
-        # Trigger alerts & Incident transition states
         is_transition = previous_is_up is not None and previous_is_up != is_up
         is_initial = previous_is_up is None
 
-        # Manage Incidents
         if is_up:
             if is_transition:
-                # Recovered - Resolve active incidents
                 active_incidents = monitor.incidents.filter(resolved_at__isnull=True)
                 for incident in active_incidents:
                     incident.resolved_at = now
