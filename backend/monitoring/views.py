@@ -59,6 +59,33 @@ def _cache_delete(key):
         pass
 
 
+def _invalidate_user_cache(user_id, monitor_id=None, status_page_slug=None):
+    """Invalidate all cached views for a specific user to ensure fresh data."""
+    keys_to_delete = [
+        f'global_analytics:{user_id}',
+        f'monitors_list:{user_id}',
+        f'incidents_list:{user_id}',
+        f'monitor_logs_list:{user_id}:all',
+        f'status_pages_list:{user_id}',
+        f'maintenance_windows_list:{user_id}:all',
+        f'applications_list:{user_id}',
+    ]
+    if monitor_id:
+        keys_to_delete.extend([
+            f'monitor_detail:{user_id}:{monitor_id}',
+            f'monitor_stats:{monitor_id}',
+            f'monitor_logs_list:{user_id}:{monitor_id}',
+            f'maintenance_windows_list:{user_id}:{monitor_id}',
+        ])
+    if status_page_slug:
+        keys_to_delete.append(f'public_status:{status_page_slug}')
+        
+    for key in keys_to_delete:
+        _cache_delete(key)
+
+
+
+
 class MonitorViewSet(viewsets.ModelViewSet):
     """CRUD viewset for monitors - scoped to the authenticated user."""
     serializer_class = MonitorSerializer
@@ -76,22 +103,46 @@ class MonitorViewSet(viewsets.ModelViewSet):
             latest_status=Subquery(latest_log.values('status')[:1]),
         )
 
-    def _invalidate_analytics_cache(self, user_id):
-        """Bust the 30-second analytics cache for a user after any monitor mutation."""
-        _cache_delete(f'global_analytics:{user_id}')
+    def _invalidate_analytics_cache(self, user_id, monitor_id=None):
+        """Bust user caches after any monitor mutation."""
+        _invalidate_user_cache(user_id, monitor_id=monitor_id)
+
+    def list(self, request, *args, **kwargs):
+        cache_key = f'monitors_list:{request.user.id}'
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        response = super().list(request, *args, **kwargs)
+        _cache_set(cache_key, response.data, timeout=15)
+        return response
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        cache_key = f'monitor_detail:{request.user.id}:{instance.id}'
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        response = super().retrieve(request, *args, **kwargs)
+        _cache_set(cache_key, response.data, timeout=15)
+        return response
 
     def perform_create(self, serializer):
         if Monitor.objects.filter(user=self.request.user).count() >= MAX_MONITORS_PER_USER:
             raise ValidationError({
                 'detail': f'You can create at most {MAX_MONITORS_PER_USER} monitors.'
             })
-        serializer.save(user=self.request.user)
-        self._invalidate_analytics_cache(self.request.user.id)
+        monitor = serializer.save(user=self.request.user)
+        self._invalidate_analytics_cache(self.request.user.id, monitor.id)
+
+    def perform_update(self, serializer):
+        monitor = serializer.save()
+        self._invalidate_analytics_cache(self.request.user.id, monitor.id)
 
     def perform_destroy(self, instance):
         user_id = self.request.user.id
+        monitor_id = instance.id
         instance.delete()
-        self._invalidate_analytics_cache(user_id)
+        self._invalidate_analytics_cache(user_id, monitor_id)
 
     @action(detail=True, methods=['post'])
     def pause(self, request, pk=None):
@@ -99,7 +150,7 @@ class MonitorViewSet(viewsets.ModelViewSet):
         monitor = self.get_object()
         monitor.is_active = False
         monitor.save()
-        self._invalidate_analytics_cache(request.user.id)
+        self._invalidate_analytics_cache(request.user.id, monitor.id)
         return Response(MonitorSerializer(monitor).data)
 
     @action(detail=True, methods=['post'])
@@ -108,7 +159,7 @@ class MonitorViewSet(viewsets.ModelViewSet):
         monitor = self.get_object()
         monitor.is_active = True
         monitor.save()
-        self._invalidate_analytics_cache(request.user.id)
+        self._invalidate_analytics_cache(request.user.id, monitor.id)
         return Response(MonitorSerializer(monitor).data)
 
     @action(detail=False, methods=['post'])
@@ -124,16 +175,19 @@ class MonitorViewSet(viewsets.ModelViewSet):
 
         if action_type == 'pause':
             count = monitors.update(is_active=False)
-            self._invalidate_analytics_cache(request.user.id)
+            for m_id in monitor_ids:
+                self._invalidate_analytics_cache(request.user.id, m_id)
             return Response({'message': f'Paused {count} monitors.'})
         elif action_type == 'resume':
             count = monitors.update(is_active=True)
-            self._invalidate_analytics_cache(request.user.id)
+            for m_id in monitor_ids:
+                self._invalidate_analytics_cache(request.user.id, m_id)
             return Response({'message': f'Resumed {count} monitors.'})
         elif action_type == 'delete':
             count = monitors.count()
             monitors.delete()
-            self._invalidate_analytics_cache(request.user.id)
+            for m_id in monitor_ids:
+                self._invalidate_analytics_cache(request.user.id, m_id)
             return Response({'message': f'Deleted {count} monitors.'})
         else:
             return Response({'error': f'Unknown action: {action_type}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -247,6 +301,16 @@ class MonitorLogListView(ListAPIView):
             qs = qs.filter(monitor_id=monitor_id)
         return qs[:50]
 
+    def list(self, request, *args, **kwargs):
+        monitor_id = request.query_params.get('monitor_id', 'all')
+        cache_key = f'monitor_logs_list:{request.user.id}:{monitor_id}'
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        response = super().list(request, *args, **kwargs)
+        _cache_set(cache_key, response.data, timeout=15)
+        return response
+
 
 class IncidentViewSet(viewsets.ReadOnlyModelViewSet):
     """ReadOnly viewset for incidents - scoped to the authenticated user."""
@@ -255,6 +319,15 @@ class IncidentViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return Incident.objects.filter(monitor__user=self.request.user).order_by('-started_at')
+
+    def list(self, request, *args, **kwargs):
+        cache_key = f'incidents_list:{request.user.id}'
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        response = super().list(request, *args, **kwargs)
+        _cache_set(cache_key, response.data, timeout=15)
+        return response
 
 
 class StatusPageViewSet(viewsets.ModelViewSet):
@@ -265,8 +338,32 @@ class StatusPageViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return StatusPage.objects.filter(user=self.request.user)
 
+    def list(self, request, *args, **kwargs):
+        cache_key = f'status_pages_list:{request.user.id}'
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        response = super().list(request, *args, **kwargs)
+        _cache_set(cache_key, response.data, timeout=30)
+        return response
+
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        status_page = serializer.save(user=self.request.user)
+        _invalidate_user_cache(self.request.user.id, status_page_slug=status_page.slug)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        old_slug = instance.slug
+        status_page = serializer.save()
+        _invalidate_user_cache(self.request.user.id, status_page_slug=old_slug)
+        if status_page.slug != old_slug:
+            _invalidate_user_cache(self.request.user.id, status_page_slug=status_page.slug)
+
+    def perform_destroy(self, instance):
+        user_id = self.request.user.id
+        slug = instance.slug
+        instance.delete()
+        _invalidate_user_cache(user_id, status_page_slug=slug)
 
 
 @api_view(['GET'])
@@ -531,6 +628,34 @@ class MaintenanceWindowViewSet(viewsets.ModelViewSet):
             qs = qs.filter(monitor_id=monitor_id)
         return qs
 
+    def list(self, request, *args, **kwargs):
+        monitor_id = request.query_params.get('monitor_id', 'all')
+        cache_key = f'maintenance_windows_list:{request.user.id}:{monitor_id}'
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        response = super().list(request, *args, **kwargs)
+        _cache_set(cache_key, response.data, timeout=30)
+        return response
+
+    def perform_create(self, serializer):
+        mw = serializer.save()
+        _invalidate_user_cache(self.request.user.id, monitor_id=mw.monitor.id)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        old_monitor_id = instance.monitor.id
+        mw = serializer.save()
+        _invalidate_user_cache(self.request.user.id, monitor_id=old_monitor_id)
+        if mw.monitor.id != old_monitor_id:
+            _invalidate_user_cache(self.request.user.id, monitor_id=mw.monitor.id)
+
+    def perform_destroy(self, instance):
+        user_id = self.request.user.id
+        monitor_id = instance.monitor.id
+        instance.delete()
+        _invalidate_user_cache(user_id, monitor_id=monitor_id)
+
 
 class ApplicationViewSet(viewsets.ModelViewSet):
     """CRUD API for SDK-instrumented applications."""
@@ -542,18 +667,38 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             metrics_count=Count('api_metrics')
         )
 
+    def list(self, request, *args, **kwargs):
+        cache_key = f'applications_list:{request.user.id}'
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        response = super().list(request, *args, **kwargs)
+        _cache_set(cache_key, response.data, timeout=30)
+        return response
+
     def perform_create(self, serializer):
         if Application.objects.filter(user=self.request.user).count() >= MAX_APM_APPLICATIONS_PER_USER:
             raise ValidationError({
                 'detail': f'You can create at most {MAX_APM_APPLICATIONS_PER_USER} API keys.'
             })
         serializer.save(user=self.request.user)
+        _invalidate_user_cache(self.request.user.id)
+
+    def perform_update(self, serializer):
+        serializer.save()
+        _invalidate_user_cache(self.request.user.id)
+
+    def perform_destroy(self, instance):
+        user_id = self.request.user.id
+        instance.delete()
+        _invalidate_user_cache(user_id)
 
     @action(detail=True, methods=['post'], url_path='rotate-key')
     def rotate_key(self, request, pk=None):
         application = self.get_object()
         application.api_key = Application._meta.get_field('api_key').get_default()
         application.save(update_fields=['api_key'])
+        _invalidate_user_cache(request.user.id)
         return Response(self.get_serializer(application).data)
 
 
@@ -781,13 +926,18 @@ def apm_errors(request):
         hours = int(request.query_params.get('hours', 24))
     except (TypeError, ValueError):
         hours = 24
+    application_id = request.query_params.get('application_id', '')
+    cache_key = f'apm_errors:{request.user.id}:{hours}:{application_id}'
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return Response(cached)
+
     since = timezone.now() - timedelta(hours=max(min(hours, 24 * 30), 1))
     metrics = ApiMetric.objects.filter(
         application__user=request.user,
         timestamp__gte=since,
         status_code__gte=400,
     )
-    application_id = request.query_params.get('application_id')
     if application_id:
         metrics = metrics.filter(application_id=application_id)
 
@@ -806,10 +956,12 @@ def apm_errors(request):
     # Derive total_errors from already-fetched data instead of an extra COUNT(*) query
     total_errors = sum(row['count'] for row in by_status_list)
 
-    return Response({
+    payload = {
         'total_errors': total_errors,
         'by_status_code': by_status_list,
         'top_error_endpoints': list(by_endpoint),
         'error_groups': list(groups),
         'recent_errors': list(recent),
-    })
+    }
+    _cache_set(cache_key, payload, timeout=30)
+    return Response(payload)
