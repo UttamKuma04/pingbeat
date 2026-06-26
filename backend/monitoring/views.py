@@ -166,43 +166,46 @@ class MonitorViewSet(viewsets.ModelViewSet):
     def stats(self, request, pk=None):
         """Return SLA percentages, latency stats, and chart data for a monitor."""
         monitor = self.get_object()
+
+        # Cache per-monitor stats for 30 s to avoid repeated heavy aggregates
+        cache_key = f'monitor_stats:{monitor.id}'
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
         now = timezone.now()
+        since_24h  = now - timedelta(hours=24)
+        since_7d   = now - timedelta(days=7)
+        since_30d  = now - timedelta(days=30)
 
-        def compute_sla(hours):
-            """Compute uptime SLA % over the given number of hours."""
-            since = now - timedelta(hours=hours)
-            logs = MonitorLog.objects.filter(monitor=monitor, checked_at__gte=since)
-            total = logs.count()
-            if total == 0:
-                return None
-            up_count = logs.filter(is_up=True).count()
-            return round((up_count / total) * 100, 2)
+        # --- 3 aggregate queries instead of 6 ---
+        # Each covers a different time window and pulls total + up_count + latency stats
+        # in a single DB round-trip using conditional Count / Avg.
+        def _sla_agg(since):
+            return MonitorLog.objects.filter(
+                monitor=monitor, checked_at__gte=since
+            ).aggregate(
+                total=Count('id'),
+                up=Count('id', filter=Q(is_up=True)),
+                avg=Avg('response_time_ms', filter=Q(is_up=True, response_time_ms__isnull=False)),
+                min=Min('response_time_ms', filter=Q(is_up=True, response_time_ms__isnull=False)),
+                max=Max('response_time_ms', filter=Q(is_up=True, response_time_ms__isnull=False)),
+            )
 
-        # SLA percentages
-        sla_24h = compute_sla(24)
-        sla_7d = compute_sla(24 * 7)
-        sla_30d = compute_sla(24 * 30)
+        agg_24h = _sla_agg(since_24h)
+        agg_7d  = _sla_agg(since_7d)
+        agg_30d = _sla_agg(since_30d)
 
-        # Latency stats over last 24 hours (only successful checks)
-        since_24h = now - timedelta(hours=24)
-        latency_logs = MonitorLog.objects.filter(
-            monitor=monitor,
-            checked_at__gte=since_24h,
-            is_up=True,
-            response_time_ms__isnull=False
-        )
-        latency_stats = latency_logs.aggregate(
-            avg=Avg('response_time_ms'),
-            min=Min('response_time_ms'),
-            max=Max('response_time_ms'),
-        )
+        def _sla(agg):
+            return round((agg['up'] / agg['total']) * 100, 2) if agg['total'] else None
 
         # Chart data: last 100 checks in the last 24h, oldest first
-        chart_logs = MonitorLog.objects.filter(
-            monitor=monitor,
-            checked_at__gte=since_24h
-        ).order_by('checked_at')[:100]
-
+        chart_logs = (
+            MonitorLog.objects
+            .filter(monitor=monitor, checked_at__gte=since_24h)
+            .only('checked_at', 'response_time_ms', 'is_up')
+            .order_by('checked_at')[:100]
+        )
         chart_data = [
             {
                 'time': log.checked_at.isoformat(),
@@ -212,19 +215,21 @@ class MonitorViewSet(viewsets.ModelViewSet):
             for log in chart_logs
         ]
 
-        return Response({
+        payload = {
             'sla': {
-                '24h': sla_24h,
-                '7d': sla_7d,
-                '30d': sla_30d,
+                '24h': _sla(agg_24h),
+                '7d':  _sla(agg_7d),
+                '30d': _sla(agg_30d),
             },
             'latency': {
-                'avg': round(latency_stats['avg'], 2) if latency_stats['avg'] else None,
-                'min': round(latency_stats['min'], 2) if latency_stats['min'] else None,
-                'max': round(latency_stats['max'], 2) if latency_stats['max'] else None,
+                'avg': round(agg_24h['avg'], 2) if agg_24h['avg'] else None,
+                'min': round(agg_24h['min'], 2) if agg_24h['min'] else None,
+                'max': round(agg_24h['max'], 2) if agg_24h['max'] else None,
             },
             'chart': chart_data,
-        })
+        }
+        _cache_set(cache_key, payload, timeout=30)
+        return Response(payload)
 
 
 class MonitorLogListView(ListAPIView):
@@ -233,7 +238,10 @@ class MonitorLogListView(ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = MonitorLog.objects.filter(monitor__user=self.request.user)
+        # select_related('monitor') avoids a per-row JOIN on serialization
+        qs = MonitorLog.objects.filter(
+            monitor__user=self.request.user
+        ).select_related('monitor')
         monitor_id = self.request.query_params.get('monitor_id')
         if monitor_id:
             qs = qs.filter(monitor_id=monitor_id)
@@ -265,39 +273,84 @@ class StatusPageViewSet(viewsets.ModelViewSet):
 @permission_classes([AllowAny])
 def public_status_detail(request, slug):
     """Public unauthenticated status check endpoint for status pages."""
+    cache_key = f'public_status:{slug}'
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return Response(cached)
+
     try:
-        status_page = StatusPage.objects.get(slug=slug, is_public=True)
+        status_page = StatusPage.objects.select_related('user').prefetch_related('monitors').get(
+            slug=slug, is_public=True
+        )
     except StatusPage.DoesNotExist:
         return Response({'error': 'Status page not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    monitors_data = []
+    monitors = list(status_page.monitors.all())
     now = timezone.now()
     since_90d = now - timedelta(days=90)
+    day_start_base = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    for monitor in status_page.monitors.all():
-        latest_log = monitor.logs.order_by('-checked_at').only('is_up', 'checked_at').first()
-        logs_90d = MonitorLog.objects.filter(monitor=monitor, checked_at__gte=since_90d)
-        total_checks = logs_90d.count()
-        up_checks = logs_90d.filter(is_up=True).count()
-        sla_90d = round((up_checks / total_checks) * 100, 2) if total_checks > 0 else None
+    # --- Single query: latest log per monitor via Subquery ---
+    latest_log_sub = MonitorLog.objects.filter(
+        monitor=OuterRef('pk')
+    ).order_by('-checked_at').values('is_up', 'checked_at')[:1]
 
-        # Build 90-day status matrix
+    # --- Single query: SLA over 90 days for all monitors at once ---
+    sla_qs = (
+        MonitorLog.objects
+        .filter(monitor__in=monitors, checked_at__gte=since_90d)
+        .values('monitor_id')
+        .annotate(
+            total=Count('id'),
+            up=Count('id', filter=Q(is_up=True)),
+        )
+    )
+    sla_map = {row['monitor_id']: row for row in sla_qs}
+
+    # --- Single query per monitor: daily status bucketed at DB level ---
+    from django.db.models.functions import TruncDate
+    daily_qs = (
+        MonitorLog.objects
+        .filter(monitor__in=monitors, checked_at__gte=since_90d)
+        .annotate(day=TruncDate('checked_at'))
+        .values('monitor_id', 'day')
+        .annotate(
+            has_down=Count('id', filter=Q(is_up=False)),
+            has_up=Count('id', filter=Q(is_up=True)),
+        )
+    )
+    # Build {monitor_id: {date_str: 'UP'|'DOWN'}} lookup
+    daily_map = {}
+    for row in daily_qs:
+        mid = row['monitor_id']
+        day_str = row['day'].isoformat()
+        daily_map.setdefault(mid, {})
+        daily_map[mid][day_str] = 'DOWN' if row['has_down'] else 'UP'
+
+    # --- Latest logs for all monitors in one query ---
+    latest_logs_qs = (
+        MonitorLog.objects
+        .filter(monitor__in=monitors)
+        .order_by('monitor_id', '-checked_at')
+        .distinct('monitor_id')
+        .only('monitor_id', 'is_up', 'checked_at')
+    )
+    latest_log_map = {log.monitor_id: log for log in latest_logs_qs}
+
+    monitors_data = []
+    for monitor in monitors:
+        sla_row = sla_map.get(monitor.id)
+        sla_90d = round((sla_row['up'] / sla_row['total']) * 100, 2) if sla_row and sla_row['total'] else None
+        latest_log = latest_log_map.get(monitor.id)
+        monitor_days = daily_map.get(monitor.id, {})
+
         status_history = []
         for day_offset in range(89, -1, -1):
-            day_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=day_offset)
-            day_end = day_start + timedelta(days=1)
-            day_logs = MonitorLog.objects.filter(monitor=monitor, checked_at__range=(day_start, day_end))
-            
-            if not day_logs.exists():
-                day_status = 'NO_DATA'
-            elif day_logs.filter(is_up=False).exists():
-                day_status = 'DOWN'
-            else:
-                day_status = 'UP'
-
+            day = (day_start_base - timedelta(days=day_offset)).date()
+            day_str = day.isoformat()
             status_history.append({
-                'date': day_start.date().isoformat(),
-                'status': day_status
+                'date': day_str,
+                'status': monitor_days.get(day_str, 'NO_DATA'),
             })
 
         monitors_data.append({
@@ -314,16 +367,17 @@ def public_status_detail(request, slug):
         })
 
     active_incidents = Incident.objects.filter(
-        monitor__in=status_page.monitors.all(),
-        resolved_at__isnull=True
-    )
+        monitor__in=monitors, resolved_at__isnull=True
+    ).select_related('monitor')
     incidents_data = IncidentSerializer(active_incidents, many=True).data
 
-    return Response({
+    payload = {
         'title': status_page.title,
         'monitors': monitors_data,
         'active_incidents': incidents_data,
-    })
+    }
+    _cache_set(cache_key, payload, timeout=60)
+    return Response(payload)
 
 
 @api_view(['GET'])
@@ -748,9 +802,13 @@ def apm_errors(request):
         'status_code', 'endpoint', 'error_message', 'timestamp'
     ).order_by('-timestamp')[:10]
 
+    by_status_list = list(by_status)
+    # Derive total_errors from already-fetched data instead of an extra COUNT(*) query
+    total_errors = sum(row['count'] for row in by_status_list)
+
     return Response({
-        'total_errors': metrics.count(),
-        'by_status_code': list(by_status),
+        'total_errors': total_errors,
+        'by_status_code': by_status_list,
         'top_error_endpoints': list(by_endpoint),
         'error_groups': list(groups),
         'recent_errors': list(recent),

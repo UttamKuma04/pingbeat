@@ -67,19 +67,36 @@ class MonitorSerializer(serializers.ModelSerializer):
         return log.status_code if log else None
 
     def get_status_changed_at(self, obj):
+        # Fast path: if the viewset annotated latest_is_up, avoid any extra queries.
+        # The status-changed timestamp requires knowing when the current status first
+        # started — we approximate this as: the checked_at of the first log *after*
+        # the most recent log with the OPPOSITE status.
+        # This is done with at most 2 small indexed queries, but only when needed.
         latest_is_up = getattr(obj, 'latest_is_up', None)
         if latest_is_up is None:
-            log = obj.logs.first()
+            log = obj.logs.only('is_up', 'checked_at').first()
             if not log:
                 return obj.created_at
             latest_is_up = log.is_up
 
-        last_diff_log = obj.logs.filter(is_up=not latest_is_up).order_by('-checked_at').first()
+        # Find most recent log with the opposite status
+        last_diff_log = (
+            obj.logs
+            .only('checked_at', 'is_up')
+            .filter(is_up=not latest_is_up)
+            .first()  # already ordered by -checked_at on the model Meta
+        )
         if not last_diff_log:
-            first_log = obj.logs.order_by('checked_at').first()
+            first_log = obj.logs.only('checked_at').order_by('checked_at').first()
             return first_log.checked_at if first_log else obj.created_at
 
-        transition_log = obj.logs.filter(is_up=latest_is_up, checked_at__gt=last_diff_log.checked_at).order_by('checked_at').first()
+        transition_log = (
+            obj.logs
+            .only('checked_at')
+            .filter(is_up=latest_is_up, checked_at__gt=last_diff_log.checked_at)
+            .order_by('checked_at')
+            .first()
+        )
         return transition_log.checked_at if transition_log else last_diff_log.checked_at
 
     def get_current_status(self, obj):
