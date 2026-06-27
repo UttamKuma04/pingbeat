@@ -7,24 +7,12 @@ app = Celery('config')
 app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
-from celery.schedules import crontab
+"""Celery app bootstrap.
 
-# Beat schedule
-app.conf.beat_schedule = {
-    'check-monitors-every-30-seconds': {
-        'task': 'monitoring.tasks.check_monitors',
-        'schedule': 30.0,
-    },
-    'cleanup-old-logs-daily': {
-        'task': 'monitoring.tasks.cleanup_old_logs',
-        'schedule': crontab(hour=0, minute=0),
-    },
-    'aggregate-apm-metrics-every-minute': {
-        'task': 'monitoring.tasks.aggregate_apm_metrics',
-        'schedule': 60.0,
-    },
-    'check-apm-slow-endpoints': {
-        'task': 'monitoring.tasks.check_apm_slow_endpoints',
-        'schedule': crontab(minute='*/5'),
-    },
-}
+Beat runs on Render with the Django database scheduler:
+`django_celery_beat.schedulers:DatabaseScheduler`.
+
+Keep periodic task definitions in `django_celery_beat` only so each task is
+scheduled exactly once. Defining `app.conf.beat_schedule` here in addition to
+database-backed `PeriodicTask` entries causes duplicate enqueues.
+"""
