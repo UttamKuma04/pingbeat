@@ -1,12 +1,9 @@
 import secrets
-
 from django.db import models
 from django.contrib.auth.models import User
 
-
 def generate_api_key():
     return f"pb_{secrets.token_urlsafe(32)}"
-
 
 class Monitor(models.Model):
     HTTP_METHOD_CHOICES = [
@@ -33,25 +30,15 @@ class Monitor(models.Model):
     is_active = models.BooleanField(default=True)
     email_alerts = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-
     http_method = models.CharField(max_length=10, choices=HTTP_METHOD_CHOICES, default='GET')
     headers = models.JSONField(default=dict, blank=True)
     body = models.TextField(blank=True, default='')
-
     keyword = models.CharField(max_length=255, blank=True, null=True)
-
-    # Custom alerts
     webhook_url = models.URLField(blank=True, null=True)
     notification_channel = models.CharField(max_length=20, choices=NOTIFICATION_CHANNEL_CHOICES, default='email')
-
-    # Tags / Groups
     tags = models.CharField(max_length=255, blank=True, default='', help_text="Comma-separated tags")
-
-    # SSL Expiry
     ssl_expiry = models.DateTimeField(null=True, blank=True)
     ssl_issuer = models.CharField(max_length=255, null=True, blank=True)
-
-    # Response Assertions
     assert_keyword = models.CharField(max_length=255, blank=True, null=True)
     assert_max_response_time_ms = models.IntegerField(blank=True, null=True)
 
@@ -101,17 +88,13 @@ class Incident(models.Model):
     resolved_at = models.DateTimeField(null=True, blank=True)
     duration_seconds = models.IntegerField(null=True, blank=True)
     error_message = models.TextField(blank=True, default='')
-
     class Meta:
         ordering = ['-started_at']
-
     def __str__(self):
         status = 'Active' if not self.resolved_at else f'Resolved (Duration: {self.duration_seconds}s)'
         return f'{self.monitor.name} Incident - {status} starting at {self.started_at}'
 
-
 class StatusPage(models.Model):
-    """A public status page created by a user to show status of selected monitors."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='status_pages')
     title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=100, unique=True)
@@ -124,7 +107,6 @@ class StatusPage(models.Model):
 
 
 class MaintenanceWindow(models.Model):
-    """A scheduled maintenance window where checks are skipped."""
     monitor = models.ForeignKey(Monitor, on_delete=models.CASCADE, related_name='maintenance_windows')
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
@@ -139,7 +121,6 @@ class MaintenanceWindow(models.Model):
 
 
 class Application(models.Model):
-    """An application instrumented by a PingBEAT SDK."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='apm_applications')
     name = models.CharField(max_length=255)
     environment = models.CharField(max_length=100, default='production')
@@ -157,7 +138,6 @@ class Application(models.Model):
 
 
 class ApiMetric(models.Model):
-    """A raw API performance metric sent by a PingBEAT SDK batch."""
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='api_metrics')
     endpoint = models.CharField(max_length=512)
     method = models.CharField(max_length=10)
@@ -183,7 +163,6 @@ class ApiMetric(models.Model):
 
     def __str__(self):
         return f'{self.application.name} {self.method} {self.endpoint} {self.status_code}'
-
 
 class ApiMetricSummary(models.Model):
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='api_metric_summaries')
@@ -232,7 +211,6 @@ def setup_periodic_tasks(sender, **kwargs):
                 'interval': schedule_30s,
             }
         )
-
         cron_midnight, _ = CrontabSchedule.objects.get_or_create(hour=0, minute=0)
         PeriodicTask.objects.get_or_create(
             name='Cleanup Old Logs',

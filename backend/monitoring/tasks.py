@@ -17,6 +17,21 @@ from celery import shared_task
 from .models import Monitor, MonitorLog, Incident, MaintenanceWindow, ApiMetric, ApiMetricSummary
 
 
+TASK_LOCK_TTL_SECONDS = 300
+
+
+def _task_lock_key(task_name):
+    return f'celery-lock:{task_name}'
+
+
+def _acquire_task_lock(task_name, timeout=TASK_LOCK_TTL_SECONDS):
+    return cache.add(_task_lock_key(task_name), '1', timeout=timeout)
+
+
+def _release_task_lock(task_name):
+    cache.delete(_task_lock_key(task_name))
+
+
 def percentile(values, percentile_rank):
     if not values:
         return 0
@@ -63,146 +78,140 @@ def check_ssl_expiry(url_str):
     return None, None
 
 
-@shared_task
-def check_monitors():
-    monitors = Monitor.objects.filter(is_active=True)
-    results = []
-    now = timezone.now()
-    probe_region = os.environ.get("PROBE_REGION", "us-east")
+@shared_task(bind=True, max_retries=5, default_retry_delay=15)
+def check_monitors(self):
+    task_name = 'check_monitors'
+    if not _acquire_task_lock(task_name):
+        return f'{task_name} already running'
 
-    for monitor in monitors:
-        # Get the previous check log to compare state transition
-        previous_log = monitor.logs.first()
-        previous_is_up = previous_log.is_up if previous_log else None
+    try:
+        monitors = Monitor.objects.filter(is_active=True)
+        results = []
+        now = timezone.now()
+        probe_region = os.environ.get("PROBE_REGION", "us-east")
 
-        # Dynamic scheduling check
-        if previous_log:
-            elapsed = (now - previous_log.checked_at).total_seconds()
-            # If not enough time has passed (minus 5s buffer for jitter), skip check
-            if elapsed < (monitor.interval_seconds - 5):
+        for monitor in monitors:
+            previous_log = monitor.logs.first()
+            previous_is_up = previous_log.is_up if previous_log else None
+
+            if previous_log:
+                elapsed = (now - previous_log.checked_at).total_seconds()
+                if elapsed < (monitor.interval_seconds - 5):
+                    continue
+
+            active_mw = monitor.maintenance_windows.filter(start_time__lte=now, end_time__gte=now).first()
+            if active_mw:
+                MonitorLog.objects.create(
+                    monitor=monitor,
+                    is_up=True,
+                    status='maintenance',
+                    error_message=f"Skipped check due to active maintenance window: {active_mw.label}",
+                    region=probe_region,
+                )
+                results.append(f'{monitor.name}: SKIPPED (Maintenance)')
                 continue
 
-        # Check for active maintenance window
-        active_mw = monitor.maintenance_windows.filter(start_time__lte=now, end_time__gte=now).first()
-        if active_mw:
-            MonitorLog.objects.create(
-                monitor=monitor,
-                is_up=True,
-                status='maintenance',
-                error_message=f"Skipped check due to active maintenance window: {active_mw.label}",
-                region=probe_region,
-            )
-            results.append(f'{monitor.name}: SKIPPED (Maintenance)')
-            continue
+            ssl_expiry_date = None
+            ssl_days_remaining = None
+            ssl_warning = False
+            ssl_expiry = None
+            ssl_issuer = None
+            if monitor.url.startswith('https://'):
+                ssl_expiry, ssl_issuer = check_ssl_expiry(monitor.url)
+                if ssl_expiry:
+                    ssl_expiry_date = ssl_expiry.date()
+                    ssl_days_remaining = (ssl_expiry - now).days
+                    ssl_warning = ssl_days_remaining < 14
+                    monitor.ssl_expiry = ssl_expiry
+                    monitor.ssl_issuer = ssl_issuer
+                    monitor.save(update_fields=['ssl_expiry', 'ssl_issuer'])
 
-        # SSL certificate check for HTTPS websites (fetch for HTTPS checks)
-        ssl_expiry_date = None
-        ssl_days_remaining = None
-        ssl_warning = False
-        if monitor.url.startswith('https://'):
-            ssl_expiry, ssl_issuer = check_ssl_expiry(monitor.url)
-            if ssl_expiry:
-                ssl_expiry_date = ssl_expiry
-                ssl_days_remaining = (ssl_expiry - now).days
-                ssl_warning = ssl_days_remaining < 14
-                
-                # Update monitor fields
-                monitor.ssl_expiry = ssl_expiry
-                monitor.ssl_issuer = ssl_issuer
-                monitor.save(update_fields=['ssl_expiry', 'ssl_issuer'])
+            start_time = time.time()
+            is_up = False
+            status_code = None
+            error_message = ''
+            failure_reason = None
 
-        start_time = time.time()
-        is_up = False
-        status_code = None
-        error_message = ''
-        failure_reason = None
+            try:
+                req_headers = {'User-Agent': 'PingBEAT Monitor/1.0'}
+                if monitor.headers:
+                    req_headers.update(monitor.headers)
+                req_body = monitor.body if monitor.body else None
 
-        try:
-            # Setup HTTP Request Options
-            req_headers = {'User-Agent': 'PingBEAT Monitor/1.0'}
-            if monitor.headers:
-                req_headers.update(monitor.headers)
+                response = http_requests.request(
+                    method=monitor.http_method,
+                    url=monitor.url,
+                    headers=req_headers,
+                    data=req_body,
+                    timeout=monitor.timeout_seconds,
+                )
+                response_time_ms = (time.time() - start_time) * 1000
+                status_code = response.status_code
+                is_up = status_code == monitor.expected_status
 
-            req_body = monitor.body if monitor.body else None
+                if not is_up:
+                    failure_reason = f"Status code assertion failed: expected {monitor.expected_status}, got {status_code}"
+                    error_message = failure_reason
 
-            response = http_requests.request(
-                method=monitor.http_method,
-                url=monitor.url,
-                headers=req_headers,
-                data=req_body,
-                timeout=monitor.timeout_seconds
-            )
-            response_time_ms = (time.time() - start_time) * 1000
-            status_code = response.status_code
-            
-            is_up = status_code == monitor.expected_status
-            if not is_up:
-                failure_reason = f"Status code assertion failed: expected {monitor.expected_status}, got {status_code}"
-                error_message = failure_reason
-            
-            keyword_to_check = monitor.assert_keyword or monitor.keyword
-            if is_up and keyword_to_check:
-                if keyword_to_check not in response.text:
+                keyword_to_check = monitor.assert_keyword or monitor.keyword
+                if is_up and keyword_to_check and keyword_to_check not in response.text:
                     is_up = False
                     failure_reason = f"Keyword assertion failed: '{keyword_to_check}' not found in response body"
                     error_message = failure_reason
 
-            # 3. Assert Max Response Time
-            if is_up and monitor.assert_max_response_time_ms is not None:
-                if response_time_ms > monitor.assert_max_response_time_ms:
+                if is_up and monitor.assert_max_response_time_ms is not None and response_time_ms > monitor.assert_max_response_time_ms:
                     is_up = False
                     failure_reason = f"Response time assertion failed: took {response_time_ms:.1f}ms, max allowed {monitor.assert_max_response_time_ms}ms"
                     error_message = failure_reason
+            except http_requests.RequestException as exc:
+                response_time_ms = (time.time() - start_time) * 1000
+                is_up = False
+                error_message = str(exc)[:500]
+                failure_reason = error_message
 
-        except http_requests.RequestException as e:
-            response_time_ms = (time.time() - start_time) * 1000
-            is_up = False
-            error_message = str(e)[:500]
-            failure_reason = error_message
+            MonitorLog.objects.create(
+                monitor=monitor,
+                status_code=status_code,
+                response_time_ms=round(response_time_ms, 2) if response_time_ms is not None else None,
+                is_up=is_up,
+                error_message=error_message or '',
+                region=probe_region,
+                ssl_expiry_date=ssl_expiry_date,
+                ssl_days_remaining=ssl_days_remaining,
+                ssl_warning=ssl_warning,
+                failure_reason=failure_reason,
+                status='up' if is_up else 'down'
+            )
+            results.append(f'{monitor.name}: {"UP" if is_up else "DOWN"}')
 
-        # Log check result
-        MonitorLog.objects.create(
-            monitor=monitor,
-            status_code=status_code,
-            response_time_ms=round(response_time_ms, 2) if response_time_ms is not None else None,
-            is_up=is_up,
-            error_message=error_message or '',
-            region=probe_region,
-            ssl_expiry_date=ssl_expiry_date,
-            ssl_days_remaining=ssl_days_remaining,
-            ssl_warning=ssl_warning,
-            failure_reason=failure_reason,
-            status='up' if is_up else 'down'
-        )
-        results.append(f'{monitor.name}: {"UP" if is_up else "DOWN"}')
+            is_transition = previous_is_up is not None and previous_is_up != is_up
+            is_initial = previous_is_up is None
 
-        is_transition = previous_is_up is not None and previous_is_up != is_up
-        is_initial = previous_is_up is None
+            if is_up:
+                if is_transition:
+                    active_incidents = monitor.incidents.filter(resolved_at__isnull=True)
+                    for incident in active_incidents:
+                        incident.resolved_at = now
+                        incident.duration_seconds = int((now - incident.started_at).total_seconds())
+                        incident.save()
+            else:
+                if is_transition or (is_initial and not is_up):
+                    if not monitor.incidents.filter(resolved_at__isnull=True).exists():
+                        Incident.objects.create(
+                            monitor=monitor,
+                            started_at=now,
+                            error_message=error_message,
+                        )
 
-        if is_up:
-            if is_transition:
-                active_incidents = monitor.incidents.filter(resolved_at__isnull=True)
-                for incident in active_incidents:
-                    incident.resolved_at = now
-                    incident.duration_seconds = int((now - incident.started_at).total_seconds())
-                    incident.save()
-        else:
-            if is_transition or (is_initial and not is_up):
-                # Outage - Create new incident if there is none already active
-                if not monitor.incidents.filter(resolved_at__isnull=True).exists():
-                    Incident.objects.create(
-                        monitor=monitor,
-                        started_at=now,
-                        error_message=error_message
-                    )
+            if monitor.email_alerts or monitor.webhook_url:
+                if is_transition or is_initial:
+                    send_monitor_alert.delay(monitor.id, previous_is_up, is_up, error_message)
 
-        # Alerts Notification logic
-        if monitor.email_alerts or monitor.webhook_url:
-            if is_transition or is_initial:
-                send_monitor_alert.delay(monitor.id, previous_is_up, is_up, error_message)
-
-    return results
-
+        return results
+    except Exception as exc:
+        raise self.retry(exc=exc)
+    finally:
+        _release_task_lock(task_name)
 
 @shared_task
 def send_monitor_alert(monitor_id, previous_is_up, is_up, error_message=''):
@@ -464,64 +473,81 @@ def process_apm_metrics(self, application_id, metrics):
         raise self.retry(exc=exc)
 
 
-@shared_task
-def aggregate_apm_metrics(minutes_back=10):
-    """Aggregate recent raw API metrics into minute summary rows."""
-    end = timezone.now().replace(second=0, microsecond=0)
-    start = end - timedelta(minutes=minutes_back)
-    metrics = ApiMetric.objects.filter(
-        timestamp__gte=start,
-        timestamp__lt=end,
-    ).only('application_id', 'endpoint', 'status_code', 'response_time_ms', 'timestamp')
+@shared_task(bind=True, max_retries=5, default_retry_delay=15)
+def aggregate_apm_metrics(self, minutes_back=10):
+    task_name = 'aggregate_apm_metrics'
+    if not _acquire_task_lock(task_name):
+        return f'{task_name} already running'
 
-    groups = defaultdict(list)
-    for metric in metrics:
-        minute_bucket = metric.timestamp.replace(second=0, microsecond=0)
-        groups[(metric.application_id, metric.endpoint, minute_bucket)].append(metric)
+    try:
+        end = timezone.now().replace(second=0, microsecond=0)
+        start = end - timedelta(minutes=minutes_back)
+        metrics = ApiMetric.objects.filter(
+            timestamp__gte=start,
+            timestamp__lt=end,
+        ).only('application_id', 'endpoint', 'status_code', 'response_time_ms', 'timestamp')
 
-    updated_count = 0
-    for (application_id, endpoint, minute_bucket), rows in groups.items():
-        request_count = len(rows)
-        response_times = [row.response_time_ms for row in rows]
-        error_count = len([row for row in rows if row.status_code >= 400])
-        avg_response_time = sum(response_times) / request_count
+        groups = defaultdict(list)
+        for metric in metrics:
+            minute_bucket = metric.timestamp.replace(second=0, microsecond=0)
+            groups[(metric.application_id, metric.endpoint, minute_bucket)].append(metric)
 
-        ApiMetricSummary.objects.update_or_create(
-            application_id=application_id,
-            endpoint=endpoint,
-            minute_bucket=minute_bucket,
-            defaults={
-                'requests_count': request_count,
-                'avg_response_time': round(avg_response_time, 2),
-                'p95_latency': round(percentile(response_times, 95), 2),
-                'p99_latency': round(percentile(response_times, 99), 2),
-                'error_rate': round((error_count / request_count) * 100, 2),
-            },
-        )
-        updated_count += 1
+        updated_count = 0
+        for (application_id, endpoint, minute_bucket), rows in groups.items():
+            request_count = len(rows)
+            response_times = [row.response_time_ms for row in rows]
+            error_count = len([row for row in rows if row.status_code >= 400])
+            avg_response_time = sum(response_times) / request_count
 
-    return f"Updated {updated_count} APM summary buckets."
+            ApiMetricSummary.objects.update_or_create(
+                application_id=application_id,
+                endpoint=endpoint,
+                minute_bucket=minute_bucket,
+                defaults={
+                    'requests_count': request_count,
+                    'avg_response_time': round(avg_response_time, 2),
+                    'p95_latency': round(percentile(response_times, 95), 2),
+                    'p99_latency': round(percentile(response_times, 99), 2),
+                    'error_rate': round((error_count / request_count) * 100, 2),
+                },
+            )
+            updated_count += 1
+
+        return f"Updated {updated_count} APM summary buckets."
+    except Exception as exc:
+        raise self.retry(exc=exc)
+    finally:
+        _release_task_lock(task_name)
 
 
-@shared_task
-def check_apm_slow_endpoints():
-    """Alert application owners when endpoint P95 latency stays above threshold."""
-    threshold_ms = getattr(settings, 'APM_SLOW_ENDPOINT_THRESHOLD_MS', 2000)
-    window = timezone.now() - timedelta(minutes=5)
-    summaries = ApiMetricSummary.objects.filter(
-        minute_bucket__gte=window,
-        p95_latency__gte=threshold_ms,
-    ).select_related('application__user')
+@shared_task(bind=True, max_retries=5, default_retry_delay=15)
+def check_apm_slow_endpoints(self):
+    task_name = 'check_apm_slow_endpoints'
+    if not _acquire_task_lock(task_name):
+        return f'{task_name} already running'
 
-    sent = 0
-    for summary in summaries:
-        alert_key = f'apm_slow_alert:{summary.application_id}:{summary.endpoint}'
-        if cache.get(alert_key):
-            continue
-        _send_apm_slow_endpoint_email(summary, threshold_ms)
-        cache.set(alert_key, True, timeout=3600)
-        sent += 1
-    return f"Sent {sent} APM slow endpoint alerts."
+    try:
+        threshold_ms = getattr(settings, 'APM_SLOW_ENDPOINT_THRESHOLD_MS', 2000)
+        window = timezone.now() - timedelta(minutes=5)
+        summaries = ApiMetricSummary.objects.filter(
+            minute_bucket__gte=window,
+            p95_latency__gte=threshold_ms,
+        ).select_related('application__user')
+
+        sent = 0
+        for summary in summaries:
+            alert_key = f'apm_slow_alert:{summary.application_id}:{summary.endpoint}'
+            if cache.get(alert_key):
+                continue
+            _send_apm_slow_endpoint_email(summary, threshold_ms)
+            cache.set(alert_key, True, timeout=3600)
+            sent += 1
+
+        return f"Sent {sent} APM slow endpoint alerts."
+    except Exception as exc:
+        raise self.retry(exc=exc)
+    finally:
+        _release_task_lock(task_name)
 
 
 def _send_apm_slow_endpoint_email(summary, threshold_ms):

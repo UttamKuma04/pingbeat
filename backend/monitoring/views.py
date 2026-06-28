@@ -92,8 +92,6 @@ class MonitorViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Use Subquery annotations to fetch latest log info in a single query,
-        # completely avoiding expensive prefetch joins of entire logs tables.
         latest_log = MonitorLog.objects.filter(monitor=OuterRef('pk')).order_by('-checked_at')
         return Monitor.objects.filter(user=self.request.user).annotate(
             latest_is_up=Subquery(latest_log.values('is_up')[:1]),
@@ -104,7 +102,6 @@ class MonitorViewSet(viewsets.ModelViewSet):
         )
 
     def _invalidate_analytics_cache(self, user_id, monitor_id=None):
-        """Bust user caches after any monitor mutation."""
         _invalidate_user_cache(user_id, monitor_id=monitor_id)
 
     def list(self, request, *args, **kwargs):
@@ -221,7 +218,6 @@ class MonitorViewSet(viewsets.ModelViewSet):
         """Return SLA percentages, latency stats, and chart data for a monitor."""
         monitor = self.get_object()
 
-        # Cache per-monitor stats for 30 s to avoid repeated heavy aggregates
         cache_key = f'monitor_stats:{monitor.id}'
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -232,9 +228,6 @@ class MonitorViewSet(viewsets.ModelViewSet):
         since_7d   = now - timedelta(days=7)
         since_30d  = now - timedelta(days=30)
 
-        # --- 3 aggregate queries instead of 6 ---
-        # Each covers a different time window and pulls total + up_count + latency stats
-        # in a single DB round-trip using conditional Count / Avg.
         def _sla_agg(since):
             return MonitorLog.objects.filter(
                 monitor=monitor, checked_at__gte=since
@@ -253,7 +246,6 @@ class MonitorViewSet(viewsets.ModelViewSet):
         def _sla(agg):
             return round((agg['up'] / agg['total']) * 100, 2) if agg['total'] else None
 
-        # Chart data: last 100 checks in the last 24h, oldest first
         chart_logs = (
             MonitorLog.objects
             .filter(monitor=monitor, checked_at__gte=since_24h)

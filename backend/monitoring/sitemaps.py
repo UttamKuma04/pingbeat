@@ -15,9 +15,7 @@ class StaticSitemap(BaseSitemap):
             '/',
             '/about',
             '/apm/doc',
-            # Comparison hub
             '/compare',
-            # Tier-1 uptime monitor comparison pages
             '/compare/pingbeat-vs-uptimerobot',
             '/compare/pingbeat-vs-pingdom',
             '/compare/pingbeat-vs-better-stack',
@@ -26,7 +24,6 @@ class StaticSitemap(BaseSitemap):
             '/compare/pingbeat-vs-checkly',
             '/compare/pingbeat-vs-freshping',
             '/compare/pingbeat-vs-hyperping',
-            # Tier-2 APM / observability comparison pages
             '/compare/pingbeat-vs-signoz',
             '/compare/pingbeat-vs-sentry',
             '/compare/pingbeat-vs-netdata',
