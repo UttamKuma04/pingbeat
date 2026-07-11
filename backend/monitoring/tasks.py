@@ -3,10 +3,12 @@ import time
 import ssl
 import socket
 import urllib.parse
+import logging
 import math
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone as datetime_timezone
 import requests as http_requests
+import redis
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import make_aware
@@ -18,6 +20,8 @@ from .models import Monitor, MonitorLog, Incident, MaintenanceWindow, ApiMetric,
 
 
 TASK_LOCK_TTL_SECONDS = 300
+REDIS_CACHE_EXCEPTIONS = (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError)
+logger = logging.getLogger(__name__)
 
 
 def _task_lock_key(task_name):
@@ -25,11 +29,18 @@ def _task_lock_key(task_name):
 
 
 def _acquire_task_lock(task_name, timeout=TASK_LOCK_TTL_SECONDS):
-    return cache.add(_task_lock_key(task_name), '1', timeout=timeout)
+    try:
+        return cache.add(_task_lock_key(task_name), '1', timeout=timeout)
+    except REDIS_CACHE_EXCEPTIONS as exc:
+        logger.warning("Skipping %s because Redis task lock acquisition failed: %s", task_name, exc)
+        return False
 
 
 def _release_task_lock(task_name):
-    cache.delete(_task_lock_key(task_name))
+    try:
+        cache.delete(_task_lock_key(task_name))
+    except REDIS_CACHE_EXCEPTIONS as exc:
+        logger.warning("Could not release Redis task lock for %s: %s", task_name, exc)
 
 
 def percentile(values, percentile_rank):
@@ -537,10 +548,23 @@ def check_apm_slow_endpoints(self):
         sent = 0
         for summary in summaries:
             alert_key = f'apm_slow_alert:{summary.application_id}:{summary.endpoint}'
-            if cache.get(alert_key):
+            try:
+                alert_recently_sent = cache.get(alert_key)
+            except REDIS_CACHE_EXCEPTIONS as exc:
+                logger.warning(
+                    "Skipping slow endpoint alert for application %s endpoint %s because Redis cache lookup failed: %s",
+                    summary.application_id,
+                    summary.endpoint,
+                    exc,
+                )
+                continue
+            if alert_recently_sent:
                 continue
             _send_apm_slow_endpoint_email(summary, threshold_ms)
-            cache.set(alert_key, True, timeout=3600)
+            try:
+                cache.set(alert_key, True, timeout=3600)
+            except REDIS_CACHE_EXCEPTIONS as exc:
+                logger.warning("Could not write Redis slow endpoint alert key %s: %s", alert_key, exc)
             sent += 1
 
         return f"Sent {sent} APM slow endpoint alerts."

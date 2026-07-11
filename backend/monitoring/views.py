@@ -396,7 +396,6 @@ def public_status_detail(request, slug):
     )
     sla_map = {row['monitor_id']: row for row in sla_qs}
 
-    # --- Single query per monitor: daily status bucketed at DB level ---
     from django.db.models.functions import TruncDate
     daily_qs = (
         MonitorLog.objects
@@ -408,7 +407,6 @@ def public_status_detail(request, slug):
             has_up=Count('id', filter=Q(is_up=True)),
         )
     )
-    # Build {monitor_id: {date_str: 'UP'|'DOWN'}} lookup
     daily_map = {}
     for row in daily_qs:
         mid = row['monitor_id']
@@ -416,7 +414,6 @@ def public_status_detail(request, slug):
         daily_map.setdefault(mid, {})
         daily_map[mid][day_str] = 'DOWN' if row['has_down'] else 'UP'
 
-    # --- Latest logs for all monitors in one query ---
     latest_logs_qs = (
         MonitorLog.objects
         .filter(monitor__in=monitors)
@@ -472,9 +469,7 @@ def public_status_detail(request, slug):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def monitor_badge(request, pk):
-    """Return a Shields.io styled SVG badge for a monitor's 30-day uptime."""
     try:
-        # Allow any user to fetch monitor uptime badges for public sharing
         monitor = Monitor.objects.get(id=pk)
     except Monitor.DoesNotExist:
         return Response({'error': 'Monitor not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -489,11 +484,11 @@ def monitor_badge(request, pk):
         uptime_pct = round((logs.filter(is_up=True).count() / total) * 100, 2)
 
     if uptime_pct >= 99.0:
-        color = '#10b981'  # emerald
+        color = '#10b981'  
     elif uptime_pct >= 95.0:
-        color = '#f59e0b'  # amber
+        color = '#f59e0b'  
     else:
-        color = '#ef4444'  # red
+        color = '#ef4444'  
 
     uptime_str = f"{uptime_pct}%"
 
