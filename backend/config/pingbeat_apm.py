@@ -1,4 +1,5 @@
 import atexit
+import logging
 import signal
 import threading
 import time
@@ -6,6 +7,8 @@ from datetime import datetime, timezone
 
 import requests
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 class PingBeatBuffer:
@@ -57,14 +60,19 @@ class PingBeatBuffer:
             return
 
         try:
-            requests.post(
+            response = requests.post(
                 ingest_url,
                 json={'api_key': api_key, 'metrics': metrics},
                 headers={'X-API-Key': api_key},
                 timeout=getattr(settings, 'PINGBEAT_APM_TIMEOUT_SECONDS', 5),
             )
+            if not response.ok:
+                logger.warning(
+                    'PingBEAT APM flush to %s returned %s: %s',
+                    ingest_url, response.status_code, response.text[:500],
+                )
         except requests.RequestException:
-            pass
+            logger.warning('PingBEAT APM flush to %s failed', ingest_url, exc_info=True)
 
     def _flush_locally(self, api_key, metrics):
         try:

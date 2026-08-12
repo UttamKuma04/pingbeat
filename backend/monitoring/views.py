@@ -1,5 +1,4 @@
 import csv
-import logging
 from django.core.cache import cache
 from datetime import timedelta
 from django.utils import timezone
@@ -34,8 +33,6 @@ from .serializers import (
     ApiMetricIngestSerializer,
 )
 from .tasks import aggregate_apm_metrics, process_apm_metrics
-
-logger = logging.getLogger(__name__)
 
 MAX_MONITORS_PER_USER = 10
 MAX_APM_APPLICATIONS_PER_USER = 5
@@ -742,17 +739,7 @@ def apm_ingest(request):
         process_apm_metrics(application.id, metrics)
         aggregate_apm_metrics(60)
     else:
-        logger.warning(
-            'apm_ingest: about to enqueue process_apm_metrics for application_id=%s, broker=%s',
-            application.id,
-            getattr(settings, 'CELERY_BROKER_URL', '<unset>'),
-        )
-        try:
-            async_result = process_apm_metrics.delay(application.id, metrics)
-            logger.warning('apm_ingest: enqueue call returned task_id=%s', async_result.id)
-        except Exception:
-            logger.exception('apm_ingest: process_apm_metrics.delay() raised an exception')
-            raise
+        process_apm_metrics.delay(application.id, metrics)
 
     remaining = max(max_requests - (current + 1), 0)
     response = Response({
