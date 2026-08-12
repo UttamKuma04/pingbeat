@@ -28,11 +28,17 @@ function LiveStatusBadge({ isUp, isActive, statusChangedAt, status, separateDura
         const mins = Math.floor(diffSecs / 60)
         const secs = diffSecs % 60
         setDurationStr(`${mins}m ${secs}s`)
-      } else {
+      } else if (diffSecs < 86400) {
         const hours = Math.floor(diffSecs / 3600)
         const mins = Math.floor((diffSecs % 3600) / 60)
         const secs = diffSecs % 60
         setDurationStr(`${hours}h ${mins}m ${secs}s`)
+      } else {
+        const days = Math.floor(diffSecs / 86400)
+        const hours = Math.floor((diffSecs % 86400) / 3600)
+        const mins = Math.floor((diffSecs % 3600) / 60)
+        const secs = diffSecs % 60
+        setDurationStr(`${days}d ${hours}h ${mins}m ${secs}s`)
       }
     }
 

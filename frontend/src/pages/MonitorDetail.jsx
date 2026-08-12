@@ -610,12 +610,18 @@ function MonitorDetail() {
                           const secs = s % 60;
                           return secs > 0 ? `${m}m ${secs}s` : `${m}m`;
                         }
-                        const h = Math.floor(s / 3600);
+                        if (s < 86400) {
+                          const h = Math.floor(s / 3600);
+                          const m = Math.floor((s % 3600) / 60);
+                          const secs = s % 60;
+                          let res = `${h}h ${m}m`;
+                          if (secs > 0) res += ` ${secs}s`;
+                          return res;
+                        }
+                        const d = Math.floor(s / 86400);
+                        const h = Math.floor((s % 86400) / 3600);
                         const m = Math.floor((s % 3600) / 60);
-                        const secs = s % 60;
-                        let res = `${h}h ${m}m`;
-                        if (secs > 0) res += ` ${secs}s`;
-                        return res;
+                        return `${d}d ${h}h ${m}m`;
                       })()}
                     </span>
                   )}

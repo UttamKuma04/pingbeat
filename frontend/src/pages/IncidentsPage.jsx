@@ -12,7 +12,10 @@ function formatDuration(seconds) {
   if (seconds === null || seconds === undefined) return 'Ongoing'
   if (seconds < 60) return `${seconds}s`
   if (seconds < 3600) return `${Math.round(seconds / 60)}m`
-  return `${Math.round(seconds / 3600)}h`
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}h`
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.round((seconds % 86400) / 3600)
+  return hours > 0 ? `${days}d ${hours}h` : `${days}d`
 }
 
 function IncidentDuration({ incident }) {
