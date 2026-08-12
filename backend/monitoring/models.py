@@ -90,6 +90,9 @@ class Incident(models.Model):
     error_message = models.TextField(blank=True, default='')
     class Meta:
         ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['monitor', '-started_at']),
+        ]
     def __str__(self):
         status = 'Active' if not self.resolved_at else f'Resolved (Duration: {self.duration_seconds}s)'
         return f'{self.monitor.name} Incident - {status} starting at {self.started_at}'

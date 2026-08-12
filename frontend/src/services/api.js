@@ -63,6 +63,26 @@ api.interceptors.response.use(
   }
 )
 
+// Short-lived response cache for endpoints that are re-fetched by both the
+// Navbar (mounted fresh on every route change) and the page it wraps. Without
+// this, every sidebar click re-requests the same data over the network on
+// top of the page's own fetch, which is what made navigation feel slow.
+const _getCache = new Map()
+
+function cachedGet(key, fetcher, ttlMs) {
+  const now = Date.now()
+  const entry = _getCache.get(key)
+  if (entry && entry.expires > now) {
+    return entry.promise
+  }
+  const promise = fetcher().catch((err) => {
+    _getCache.delete(key)
+    throw err
+  })
+  _getCache.set(key, { expires: now + ttlMs, promise })
+  return promise
+}
+
 // Auth
 export function login(email, password) {
   return api.post('/login/', { email, password })
@@ -77,7 +97,7 @@ export function loginWithGoogle(credential) {
 }
 
 export function getMe() {
-  return api.get('/me/')
+  return cachedGet('me', () => api.get('/me/'), 30000)
 }
 
 // Monitors
@@ -123,7 +143,7 @@ export function exportLogsCsv(id) {
 
 // Incidents
 export function getIncidents() {
-  return api.get('/incidents/')
+  return cachedGet('incidents', () => api.get('/incidents/'), 10000)
 }
 
 // Status Pages

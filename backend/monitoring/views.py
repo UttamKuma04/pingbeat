@@ -310,7 +310,10 @@ class IncidentViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Incident.objects.filter(monitor__user=self.request.user).order_by('-started_at')
+        # select_related('monitor') avoids a per-row query for monitor_name on serialization
+        return Incident.objects.filter(
+            monitor__user=self.request.user
+        ).select_related('monitor').order_by('-started_at')
 
     def list(self, request, *args, **kwargs):
         cache_key = f'incidents_list:{request.user.id}'
@@ -609,7 +612,8 @@ class MaintenanceWindowViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = MaintenanceWindow.objects.filter(monitor__user=self.request.user)
+        # select_related('monitor') avoids a per-row query for monitor_name on serialization
+        qs = MaintenanceWindow.objects.filter(monitor__user=self.request.user).select_related('monitor')
         monitor_id = self.request.query_params.get('monitor_id')
         if monitor_id:
             qs = qs.filter(monitor_id=monitor_id)
