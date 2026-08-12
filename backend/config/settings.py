@@ -146,8 +146,6 @@ GOOGLE_CLIENT_ID = os.environ.get(
 # CORS configuration handled dynamically at the top of the file
 
 
-
-
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = None
 CELERY_TASK_IGNORE_RESULT = True
@@ -171,20 +169,17 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BROKER_CONNECTION_RETRY = True
 CELERY_BROKER_CONNECTION_MAX_RETRIES = None
 
-# Suppress Celery 5.1 CPendingDeprecationWarning – opt in to the safe behaviour now
-CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = True
+# Explicitly opt out (silences the Celery 5.1 CPendingDeprecationWarning).
+# When True, any task executing at the moment the broker connection drops is
+# force-terminated instead of finishing normally. Render's Redis proxy closes
+# idle connections periodically (see CELERY_BROKER_TRANSPORT_OPTIONS below),
+# so with True, check_monitors could be killed mid-run, its Redis task-lock
+# would never be released in `finally`, and monitor checks would silently
+# stall for up to TASK_LOCK_TTL_SECONDS until the lock expired. Our tasks are
+# short and safe to occasionally duplicate, so we let them finish instead.
+CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = False
 
-# ---------------------------------------------------------------------------
-# Robust connection parameters for remote Redis (Render free-tier, etc.)
-#
-# Root cause of periodic "Connection closed by server" errors:
-# Render's Redis proxy silently kills TCP connections that are idle for
-# ~5-30 minutes.  The fixes below keep the connection alive:
-#   1. socket_keepalive + socket_keepalive_options  → OS-level TCP keepalive
-#      probes are sent every 60 s so the proxy never sees an idle connection.
-#   2. health_check_interval=25  → redis-py pings the server every 25 s on
-#      connections in the connection pool.
-# ---------------------------------------------------------------------------
+
 import socket as _socket
 
 _KEEPALIVE_OPTIONS = {}

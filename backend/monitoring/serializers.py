@@ -67,11 +67,6 @@ class MonitorSerializer(serializers.ModelSerializer):
         return log.status_code if log else None
 
     def get_status_changed_at(self, obj):
-        # Fast path: if the viewset annotated latest_is_up, avoid any extra queries.
-        # The status-changed timestamp requires knowing when the current status first
-        # started — we approximate this as: the checked_at of the first log *after*
-        # the most recent log with the OPPOSITE status.
-        # This is done with at most 2 small indexed queries, but only when needed.
         latest_is_up = getattr(obj, 'latest_is_up', None)
         if latest_is_up is None:
             log = obj.logs.only('is_up', 'checked_at').first()
@@ -79,7 +74,6 @@ class MonitorSerializer(serializers.ModelSerializer):
                 return obj.created_at
             latest_is_up = log.is_up
 
-        # Find most recent log with the opposite status
         last_diff_log = (
             obj.logs
             .only('checked_at', 'is_up')

@@ -19,7 +19,10 @@ from celery import shared_task
 from .models import Monitor, MonitorLog, Incident, MaintenanceWindow, ApiMetric, ApiMetricSummary
 
 
-TASK_LOCK_TTL_SECONDS = 300
+# Kept short so a lock orphaned by a hard-killed worker (OOM, deploy restart,
+# forced task termination) self-expires quickly instead of blocking every
+# scheduled run of the task for minutes.
+TASK_LOCK_TTL_SECONDS = 60
 REDIS_CACHE_EXCEPTIONS = (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError)
 logger = logging.getLogger(__name__)
 
