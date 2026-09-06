@@ -213,38 +213,48 @@ def setup_periodic_tasks(sender, **kwargs):
         return
 
     try:
+        # expire_seconds tells the broker to drop a message rather than run
+        # it late if the worker was offline when it should have fired.
+        # Without this, an outage lets Beat's on-schedule dispatches pile up
+        # unboundedly in Redis; when the worker comes back it has to drain
+        # the entire backlog in one burst, which can be enough load on its
+        # own to crash the worker again right after it recovers.
         schedule_30s, _ = IntervalSchedule.objects.get_or_create(every=30, period='seconds')
-        PeriodicTask.objects.get_or_create(
+        PeriodicTask.objects.update_or_create(
             name='Check Monitors',
             defaults={
                 'task': 'monitoring.tasks.check_monitors',
                 'interval': schedule_30s,
+                'expire_seconds': 25,
             }
         )
         cron_midnight, _ = CrontabSchedule.objects.get_or_create(hour=0, minute=0)
-        PeriodicTask.objects.get_or_create(
+        PeriodicTask.objects.update_or_create(
             name='Cleanup Old Logs',
             defaults={
                 'task': 'monitoring.tasks.cleanup_old_logs',
                 'crontab': cron_midnight,
+                'expire_seconds': 3600,
             }
         )
 
         schedule_60s, _ = IntervalSchedule.objects.get_or_create(every=60, period='seconds')
-        PeriodicTask.objects.get_or_create(
+        PeriodicTask.objects.update_or_create(
             name='Aggregate APM Metrics',
             defaults={
                 'task': 'monitoring.tasks.aggregate_apm_metrics',
                 'interval': schedule_60s,
+                'expire_seconds': 55,
             }
         )
 
         cron_5m, _ = CrontabSchedule.objects.get_or_create(minute='*/5')
-        PeriodicTask.objects.get_or_create(
+        PeriodicTask.objects.update_or_create(
             name='Check APM Slow Endpoints',
             defaults={
                 'task': 'monitoring.tasks.check_apm_slow_endpoints',
                 'crontab': cron_5m,
+                'expire_seconds': 270,
             }
         )
     except Exception:

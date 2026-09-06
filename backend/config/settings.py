@@ -157,6 +157,12 @@ CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = None
 CELERY_TASK_IGNORE_RESULT = True
 
+# Default prefetch multiplier is 4x concurrency, so a worker restart after
+# downtime can pull a large batch of backlogged messages into memory all at
+# once. 1x means it only holds as many unacked messages as it has threads,
+# so recovering from a backlog is gradual instead of a single load spike.
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+
 # Django cache backend – uses the same Redis instance, DB 1 to avoid key collisions
 _redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CACHES = {
