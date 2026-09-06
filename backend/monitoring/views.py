@@ -12,6 +12,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.generics import ListAPIView
+from rest_framework.pagination import PageNumberPagination
 
 from .models import (
     Monitor,
@@ -92,12 +93,25 @@ class MonitorViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         latest_log = MonitorLog.objects.filter(monitor=OuterRef('pk')).order_by('-checked_at')
+        # cleanup_old_logs() prunes MonitorLog rows older than 30 days by
+        # default, so a 35-day window is effectively "full history" in
+        # practice. Prefetching it once here lets get_status_changed_at()
+        # compute the current status streak in Python from obj.recent_logs
+        # instead of issuing 1-2 extra queries per monitor in list responses.
+        recent_logs_cutoff = timezone.now() - timedelta(days=35)
         return Monitor.objects.filter(user=self.request.user).annotate(
             latest_is_up=Subquery(latest_log.values('is_up')[:1]),
             latest_checked=Subquery(latest_log.values('checked_at')[:1]),
             latest_response_time=Subquery(latest_log.values('response_time_ms')[:1]),
             latest_status_code=Subquery(latest_log.values('status_code')[:1]),
             latest_status=Subquery(latest_log.values('status')[:1]),
+        ).prefetch_related(
+            Prefetch(
+                'logs',
+                queryset=MonitorLog.objects.filter(checked_at__gte=recent_logs_cutoff)
+                    .only('id', 'monitor_id', 'is_up', 'checked_at').order_by('-checked_at'),
+                to_attr='recent_logs',
+            )
         )
 
     def _invalidate_analytics_cache(self, user_id, monitor_id=None):
@@ -230,7 +244,7 @@ class MonitorViewSet(viewsets.ModelViewSet):
         def _sla_agg(since):
             return MonitorLog.objects.filter(
                 monitor=monitor, checked_at__gte=since
-            ).aggregate(
+            ).exclude(status='maintenance').aggregate(
                 total=Count('id'),
                 up=Count('id', filter=Q(is_up=True)),
                 avg=Avg('response_time_ms', filter=Q(is_up=True, response_time_ms__isnull=False)),
@@ -303,10 +317,18 @@ class MonitorLogListView(ListAPIView):
         return response
 
 
+class IncidentPagination(PageNumberPagination):
+    page_size = 50
+    max_page_size = 200
+
+
 class IncidentViewSet(viewsets.ReadOnlyModelViewSet):
     """ReadOnly viewset for incidents - scoped to the authenticated user."""
     serializer_class = IncidentSerializer
     permission_classes = [IsAuthenticated]
+    # This list has no upper bound otherwise - a long-lived flaky monitor
+    # would return (and cache in Redis) every incident ever recorded.
+    pagination_class = IncidentPagination
 
     def get_queryset(self):
         # select_related('monitor') avoids a per-row query for monitor_name on serialization
@@ -390,6 +412,7 @@ def public_status_detail(request, slug):
     sla_qs = (
         MonitorLog.objects
         .filter(monitor__in=monitors, checked_at__gte=since_90d)
+        .exclude(status='maintenance')
         .values('monitor_id')
         .annotate(
             total=Count('id'),
@@ -402,6 +425,7 @@ def public_status_detail(request, slug):
     daily_qs = (
         MonitorLog.objects
         .filter(monitor__in=monitors, checked_at__gte=since_90d)
+        .exclude(status='maintenance')
         .annotate(day=TruncDate('checked_at'))
         .values('monitor_id', 'day')
         .annotate(
@@ -471,14 +495,17 @@ def public_status_detail(request, slug):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def monitor_badge(request, pk):
-    try:
-        monitor = Monitor.objects.get(id=pk)
-    except Monitor.DoesNotExist:
+    # Only serve badges for monitors the owner has explicitly published on a
+    # public status page - otherwise anyone could enumerate sequential
+    # monitor ids to learn which URLs other users monitor. .distinct() avoids
+    # MultipleObjectsReturned when a monitor is on more than one public page.
+    monitor = Monitor.objects.filter(id=pk, status_pages__is_public=True).distinct().first()
+    if monitor is None:
         return Response({'error': 'Monitor not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     now = timezone.now()
     since_30d = now - timedelta(days=30)
-    logs = MonitorLog.objects.filter(monitor=monitor, checked_at__gte=since_30d)
+    logs = MonitorLog.objects.filter(monitor=monitor, checked_at__gte=since_30d).exclude(status='maintenance')
     total = logs.count()
     if total == 0:
         uptime_pct = 100.0
@@ -544,7 +571,7 @@ def global_analytics(request):
 
     now = timezone.now()
     since_7d = now - timedelta(days=7)
-    base_qs = MonitorLog.objects.filter(monitor__user=request.user, checked_at__gte=since_7d)
+    base_qs = MonitorLog.objects.filter(monitor__user=request.user, checked_at__gte=since_7d).exclude(status='maintenance')
 
     # Single aggregate call: total checks, up checks, and average latency together
     agg = base_qs.aggregate(
@@ -701,16 +728,23 @@ def apm_ingest(request):
     rate_limit_key = f'apm_ingest_rate:{provided_api_key or "anonymous"}'
     window_seconds = 60
     max_requests = getattr(settings, 'APM_INGEST_RATE_LIMIT', 60)
-    current = cache.get(rate_limit_key, 0)
+    # cache.add + cache.incr (atomic INCR on the Redis backend) instead of a
+    # get-then-set pair, so concurrent requests for the same key can't both
+    # read the same pre-increment count and both proceed past the check.
+    cache.add(rate_limit_key, 0, timeout=window_seconds)
+    try:
+        current = cache.incr(rate_limit_key)
+    except ValueError:
+        # Key expired between add() and incr() - reinitialize the window.
+        cache.set(rate_limit_key, 1, timeout=window_seconds)
+        current = 1
 
-    if current >= max_requests:
+    if current > max_requests:
         response = Response({'error': 'Rate limit exceeded.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
         response['X-RateLimit-Limit'] = str(max_requests)
         response['X-RateLimit-Remaining'] = '0'
         response['X-RateLimit-Window'] = str(window_seconds)
         return response
-
-    cache.set(rate_limit_key, current + 1, timeout=window_seconds)
 
     serializer = ApiMetricIngestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)

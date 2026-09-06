@@ -19,7 +19,7 @@ function StatusTimeline({ items = [], className = '' }) {
             <div
               key={`${status}-${index}`}
               className={`${colors[status] || colors.unknown} min-w-[3px]`}
-              style={{ width: `${item.width || item.percent || 100 / safeItems.length}%` }}
+              style={{ width: `${item.width ?? item.percent ?? 100 / safeItems.length}%` }}
               title={item.label || status.toUpperCase()}
             />
           )

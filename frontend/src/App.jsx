@@ -19,9 +19,15 @@ import ComparePage from './pages/ComparePage'
 import CompareHubPage from './pages/CompareHubPage'
 import ProtectedRoute from './components/ProtectedRoute'
 
-function App() {
+// A dedicated route element (rather than a value computed once in App) so
+// localStorage is re-read fresh every time "/" is navigated to, reflecting
+// login/logout that happened without a full page reload.
+function HomeRoute() {
   const isAuthenticated = !!localStorage.getItem('access_token')
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />
+}
 
+function App() {
   return (
     <BrowserRouter>
       <Routes>
@@ -32,10 +38,7 @@ function App() {
         {/* SEO: Comparison pages — highest-intent traffic */}
         <Route path="/compare" element={<CompareHubPage />} />
         <Route path="/compare/pingbeat-vs-:slug" element={<ComparePage />} />
-        <Route
-          path="/"
-          element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />}
-        />
+        <Route path="/" element={<HomeRoute />} />
         <Route
           path="/dashboard"
           element={

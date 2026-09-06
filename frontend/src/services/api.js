@@ -27,47 +27,17 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response interceptor - handle 401 and refresh token
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config
-
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
-
-      const refreshToken = localStorage.getItem('refresh_token')
-      if (refreshToken) {
-        try {
-          const res = await axios.post(`${API_BASE_URL}/token/refresh/`, {
-            refresh: refreshToken,
-          })
-          const newAccess = res.data.access
-          localStorage.setItem('access_token', newAccess)
-          originalRequest.headers.Authorization = `Bearer ${newAccess}`
-          return api(originalRequest)
-        } catch (refreshError) {
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          window.location.href = '/login'
-          return Promise.reject(refreshError)
-        }
-      } else {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        window.location.href = '/login'
-      }
-    }
-
-    return Promise.reject(error)
-  }
-)
-
 // Short-lived response cache for endpoints that are re-fetched by both the
 // Navbar (mounted fresh on every route change) and the page it wraps. Without
 // this, every sidebar click re-requests the same data over the network on
 // top of the page's own fetch, which is what made navigation feel slow.
+// Cleared on login/logout so one browser tab can never serve a previous
+// account's cached response to the next signed-in user.
 const _getCache = new Map()
+
+export function clearApiCache() {
+  _getCache.clear()
+}
 
 function cachedGet(key, fetcher, ttlMs) {
   const now = Date.now()
@@ -82,6 +52,65 @@ function cachedGet(key, fetcher, ttlMs) {
   _getCache.set(key, { expires: now + ttlMs, promise })
   return promise
 }
+
+function clearAuthAndRedirect() {
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
+  clearApiCache()
+  window.location.href = '/login'
+}
+
+// Shared in-flight refresh promise so concurrent 401s (common when several
+// requests fire on page load) reuse one refresh call instead of each racing
+// to rotate the same refresh token - only the first would succeed since
+// ROTATE_REFRESH_TOKENS blacklists it immediately after use.
+let refreshPromise = null
+
+function refreshAccessToken(refreshToken) {
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .post(`${API_BASE_URL}/token/refresh/`, { refresh: refreshToken })
+      .then((res) => {
+        localStorage.setItem('access_token', res.data.access)
+        if (res.data.refresh) {
+          localStorage.setItem('refresh_token', res.data.refresh)
+        }
+        return res.data.access
+      })
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+  return refreshPromise
+}
+
+// Response interceptor - handle 401 and refresh token
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config
+
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+
+      const refreshToken = localStorage.getItem('refresh_token')
+      if (refreshToken) {
+        try {
+          const newAccess = await refreshAccessToken(refreshToken)
+          originalRequest.headers.Authorization = `Bearer ${newAccess}`
+          return api(originalRequest)
+        } catch (refreshError) {
+          clearAuthAndRedirect()
+          return Promise.reject(refreshError)
+        }
+      } else {
+        clearAuthAndRedirect()
+      }
+    }
+
+    return Promise.reject(error)
+  }
+)
 
 // Auth
 export function login(email, password) {
@@ -103,6 +132,12 @@ export function getMe() {
 // Monitors
 export function getMonitors() {
   return api.get('/monitors/')
+}
+
+// Cached variant for read-heavy, non-realtime-critical consumers (e.g. the
+// command palette) so it doesn't force a fresh fetch on every open.
+export function getMonitorsCached() {
+  return cachedGet('monitors', () => api.get('/monitors/'), 15000)
 }
 
 export function createMonitor(data) {
@@ -151,12 +186,12 @@ export function getStatusPages() {
   return api.get('/status-pages/')
 }
 
-export function createStatusPage(data) {
-  return api.post('/status-pages/', data)
+export function getStatusPagesCached() {
+  return cachedGet('statusPages', () => api.get('/status-pages/'), 30000)
 }
 
-export function getStatusPage(id) {
-  return api.get(`/status-pages/${id}/`)
+export function createStatusPage(data) {
+  return api.post('/status-pages/', data)
 }
 
 export function updateStatusPage(id, data) {
@@ -183,10 +218,6 @@ export function getApmApplications() {
 
 export function createApmApplication(data) {
   return api.post('/apm/applications/', data)
-}
-
-export function getApmApplication(id) {
-  return api.get(`/apm/applications/${id}/`)
 }
 
 export function deleteApmApplication(id) {

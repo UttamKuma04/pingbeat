@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import LiveStatusBadge from '../components/LiveStatusBadge'
 import { getMonitor, getLogs, getMonitorStats, pauseMonitor, resumeMonitor, deleteMonitor, exportLogsCsv, getIncidents, getMaintenanceWindows, createMaintenanceWindow, deleteMaintenanceWindow } from '../services/api'
+import { formatDurationCompact } from '../utils/duration'
 
 function ResponseTimeChart({ chartData }) {
   const [tooltip, setTooltip] = useState(null)
@@ -198,6 +199,12 @@ function MonitorDetail() {
   const [mwLoading, setMwLoading] = useState(false)
   const [mwError, setMwError] = useState('')
 
+  // Tracks the most recently rendered :id so a slow response for a monitor
+  // the user has already navigated away from can't overwrite the currently
+  // displayed monitor's state once it finally resolves.
+  const currentIdRef = useRef(id)
+  currentIdRef.current = id
+
   useEffect(() => {
     fetchMonitorDetails()
     fetchMonitorLogs()
@@ -208,30 +215,41 @@ function MonitorDetail() {
   }, [id])
 
   async function fetchMonitorDetails() {
+    const requestedId = id
     try {
-      const res = await getMonitor(id)
+      const res = await getMonitor(requestedId)
+      if (requestedId !== currentIdRef.current) return
       setMonitor(res.data)
     } catch (err) {
+      if (requestedId !== currentIdRef.current) return
       setError('Failed to load monitor details.')
     } finally {
-      setLoading(false)
+      if (requestedId === currentIdRef.current) {
+        setLoading(false)
+      }
     }
   }
 
   async function fetchMonitorLogs() {
+    const requestedId = id
     try {
-      const res = await getLogs(id)
+      const res = await getLogs(requestedId)
+      if (requestedId !== currentIdRef.current) return
       setLogs(res.data.results || res.data || [])
     } catch (err) {
       console.error('Failed to load logs:', err)
     } finally {
-      setLogsLoading(false)
+      if (requestedId === currentIdRef.current) {
+        setLogsLoading(false)
+      }
     }
   }
 
   async function fetchMonitorStats() {
+    const requestedId = id
     try {
-      const res = await getMonitorStats(id)
+      const res = await getMonitorStats(requestedId)
+      if (requestedId !== currentIdRef.current) return
       setStats(res.data)
     } catch (err) {
       console.error('Failed to load stats:', err)
@@ -239,18 +257,22 @@ function MonitorDetail() {
   }
 
   async function fetchMonitorIncidents() {
+    const requestedId = id
     try {
       const res = await getIncidents()
+      if (requestedId !== currentIdRef.current) return
       const data = res.data.results || res.data || []
-      setIncidents(data.filter((inc) => inc.monitor === parseInt(id, 10)))
+      setIncidents(data.filter((inc) => inc.monitor === parseInt(requestedId, 10)))
     } catch (err) {
       console.error('Failed to load incidents:', err)
     }
   }
 
   async function fetchMaintenanceWindows() {
+    const requestedId = id
     try {
-      const res = await getMaintenanceWindows(id)
+      const res = await getMaintenanceWindows(requestedId)
+      if (requestedId !== currentIdRef.current) return
       setMaintenanceWindows(res.data.results || res.data || [])
     } catch (err) {
       console.error('Failed to load maintenance windows:', err)
@@ -602,27 +624,7 @@ function MonitorDetail() {
                   </div>
                   {incident.duration_seconds !== null && (
                     <span className="text-slate-500 text-xs font-mono">
-                      Downtime: {(() => {
-                        const s = incident.duration_seconds;
-                        if (s < 60) return `${s}s`;
-                        if (s < 3600) {
-                          const m = Math.floor(s / 60);
-                          const secs = s % 60;
-                          return secs > 0 ? `${m}m ${secs}s` : `${m}m`;
-                        }
-                        if (s < 86400) {
-                          const h = Math.floor(s / 3600);
-                          const m = Math.floor((s % 3600) / 60);
-                          const secs = s % 60;
-                          let res = `${h}h ${m}m`;
-                          if (secs > 0) res += ` ${secs}s`;
-                          return res;
-                        }
-                        const d = Math.floor(s / 86400);
-                        const h = Math.floor((s % 86400) / 3600);
-                        const m = Math.floor((s % 3600) / 60);
-                        return `${d}d ${h}h ${m}m`;
-                      })()}
+                      Downtime: {formatDurationCompact(incident.duration_seconds)}
                     </span>
                   )}
                 </div>

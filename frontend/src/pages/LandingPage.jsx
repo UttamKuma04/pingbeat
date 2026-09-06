@@ -1,38 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
 import SeoHead from '../components/SeoHead'
-
-function Reveal({ children, delay = 0, className = '' }) {
-  const ref = useRef(null)
-  const [isVisible, setIsVisible] = useState(false)
-
-  useEffect(() => {
-    const node = ref.current
-    if (!node) return undefined
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true)
-          observer.unobserve(entry.target)
-        }
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
-
-  return (
-    <div
-      ref={ref}
-      className={`transition-all duration-700 ease-out ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'} ${className}`}
-      style={{ transitionDelay: `${delay}ms` }}
-    >
-      {children}
-    </div>
-  )
-}
+import Reveal from '../components/Reveal'
 
 function SectionHeader({ eyebrow, title, subtitle, centered = false }) {
   return (
@@ -367,119 +337,117 @@ function ObservabilityStats() {
 }
 
 /* ── main component ── */
+
+const coreFeatures = [
+  {
+    icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>,
+    title: 'HTTP/HTTPS Monitoring',
+    desc: 'Monitor any endpoint with configurable HTTP methods, request headers, body payloads, and expected status codes. Supports GET, POST, PUT, DELETE, HEAD checks at intervals as low as 30 seconds.',
+  },
+  {
+    icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>,
+    title: 'SSL Certificate Tracking',
+    desc: 'Automatically capture certificate expiry dates, issuers, and validity state on every check. Get warned before certificates expire so your users never see a security warning.',
+  },
+  {
+    icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>,
+    title: 'Self-Hosted Data Control',
+    desc: 'Maintain full ownership of monitoring data, incident records, logs, and access controls within your infrastructure. Keep sensitive operational data under your control.',
+  },
+  {
+    icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
+    title: 'Multi-Region Probes',
+    desc: 'Assign region labels to monitoring nodes so every status check includes geographic context, helping teams distinguish between global outages and localized disruptions.',
+  },
+  {
+    icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>,
+    title: 'Public Status Pages',
+    desc: 'Publish branded status pages with selected monitors, 90-day uptime history bars, and live incident reports. Give customers a trusted source of truth during incidents.',
+  },
+
+  {
+    icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
+    title: 'Incident History & Evidence',
+    desc: 'Every status transition opens or resolves an incident record with start time, duration, and error context. Full audit trail of your service reliability over time.',
+  },
+ 
+  {
+    icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>,
+    title: 'APM Integration',
+    desc: 'Register applications and instrument them with the PingBEAT SDK to collect endpoint-level latency, error rates, P95/P99, traffic volume, and Apdex scores.',
+  },
+  {
+    icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>,
+    title: 'Log Explorer',
+    desc: 'Search and filter every check result across all monitors. Filter by status, response time, status code class, region, and monitor name. Inspect individual logs in a detail panel.',
+  },
+  {
+    icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>,
+    title: 'Badges & CSV Reports',
+    desc: 'Expose SVG uptime badges for README or docs embeds, and export monitor logs as CSV files for client reports, audits, and reliability reviews.',
+  },
+
+]
+
+const howItWorks = [
+  {
+    step: '01',
+    title: 'Define Your Monitors',
+    body: 'Add URLs or API endpoints with your expected HTTP method, status code, timeout, check interval, tags, request headers, body, and optional assertions. Everything is configurable per monitor.',
+  },
+  {
+    step: '02',
+    title: 'Workers Execute Probes',
+    body: 'Celery Beat triggers checks on schedule. Workers execute the HTTP probe, validate assertions, capture SSL state, and record response time — all asynchronously without blocking other checks.',
+  },
+  {
+    step: '03',
+    title: 'Evidence Gets Recorded',
+    body: 'Each check creates a MonitorLog with status code, response time, SSL metadata, region tag, failure reason, and keyword match result. Nothing is lost — the full log history is searchable.',
+  },
+  {
+    step: '04',
+    title: 'State Transitions Trigger Actions',
+    body: 'When a monitor flips from UP to DOWN, an Incident opens and an alert fires. When it recovers, the Incident resolves with duration. The dashboard reflects the change in real time.',
+  },
+  {
+    step: '05',
+    title: 'Teams Stay Informed',
+    body: 'Alerts reach teams via Email, Slack, Discord, or webhook. Status pages surface outages to customers. The Log Explorer gives engineers the evidence they need to debug quickly.',
+  },
+  {
+    step: '06',
+    title: 'Analytics Close the Loop',
+    body: 'SLA trends, latency distributions, downtime heatmaps, and incident MTTR give you the data to prioritize reliability investments and demonstrate service quality to stakeholders.',
+  },
+]
+
+const useCases = [
+  {
+    title: 'SaaS Product Teams',
+    desc: 'Monitor your API, dashboard, auth, and payment endpoints. Catch regressions before users report them. Share a public status page to build customer trust during incidents.',
+    tags: ['API monitoring', 'Status pages', 'Slack alerts'],
+  },
+  {
+    title: 'DevOps & SRE Teams',
+    desc: 'Get deep evidence from every check log. Schedule maintenance windows around deployments. Track SLA compliance over 30, 7, and 1-day windows for reliability reviews.',
+    tags: ['Log Explorer', 'Maintenance windows', 'SLA tracking'],
+  },
+  {
+    title: 'Agencies & Freelancers',
+    desc: 'Monitor client sites from a single dashboard. Export CSV logs for client reports. Create branded public status pages for each client with their selected services.',
+    tags: ['Multi-monitor', 'CSV export', 'Public pages'],
+  },
+  {
+    title: 'Infrastructure Teams',
+    desc: 'Tag monitors by environment and region. Use bulk actions to pause entire groups during migrations. Track SSL certificate health across all domains from one view.',
+    tags: ['Tag filtering', 'Bulk actions', 'SSL tracking'],
+  },
+]
+
 function LandingPage() {
   const navigate = useNavigate()
   const isAuthenticated = !!localStorage.getItem('access_token')
-
-  const coreFeatures = [
-    {
-      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>,
-      title: 'HTTP/HTTPS Monitoring',
-      desc: 'Monitor any endpoint with configurable HTTP methods, request headers, body payloads, and expected status codes. Supports GET, POST, PUT, DELETE, HEAD checks at intervals as low as 30 seconds.',
-    },
-    {
-      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>,
-      title: 'SSL Certificate Tracking',
-      desc: 'Automatically capture certificate expiry dates, issuers, and validity state on every check. Get warned before certificates expire so your users never see a security warning.',
-    },
-    {
-      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>,
-      title: 'Self-Hosted Data Control',
-      desc: 'Maintain full ownership of monitoring data, incident records, logs, and access controls within your infrastructure. Keep sensitive operational data under your control.',
-    },
-    {
-      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
-      title: 'Multi-Region Probes',
-      desc: 'Assign region labels to monitoring nodes so every status check includes geographic context, helping teams distinguish between global outages and localized disruptions.',
-    },
-    {
-      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>,
-      title: 'Public Status Pages',
-      desc: 'Publish branded status pages with selected monitors, 90-day uptime history bars, and live incident reports. Give customers a trusted source of truth during incidents.',
-    },
-
-    {
-      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
-      title: 'Incident History & Evidence',
-      desc: 'Every status transition opens or resolves an incident record with start time, duration, and error context. Full audit trail of your service reliability over time.',
-    },
- 
-    {
-      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>,
-      title: 'APM Integration',
-      desc: 'Register applications and instrument them with the PingBEAT SDK to collect endpoint-level latency, error rates, P95/P99, traffic volume, and Apdex scores.',
-    },
-    {
-      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>,
-      title: 'Log Explorer',
-      desc: 'Search and filter every check result across all monitors. Filter by status, response time, status code class, region, and monitor name. Inspect individual logs in a detail panel.',
-    },
-    {
-      icon: <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>,
-      title: 'Badges & CSV Reports',
-      desc: 'Expose SVG uptime badges for README or docs embeds, and export monitor logs as CSV files for client reports, audits, and reliability reviews.',
-    },
-
-  ]
-
-  const howItWorks = [
-    {
-      step: '01',
-      title: 'Define Your Monitors',
-      body: 'Add URLs or API endpoints with your expected HTTP method, status code, timeout, check interval, tags, request headers, body, and optional assertions. Everything is configurable per monitor.',
-    },
-    {
-      step: '02',
-      title: 'Workers Execute Probes',
-      body: 'Celery Beat triggers checks on schedule. Workers execute the HTTP probe, validate assertions, capture SSL state, and record response time — all asynchronously without blocking other checks.',
-    },
-    {
-      step: '03',
-      title: 'Evidence Gets Recorded',
-      body: 'Each check creates a MonitorLog with status code, response time, SSL metadata, region tag, failure reason, and keyword match result. Nothing is lost — the full log history is searchable.',
-    },
-    {
-      step: '04',
-      title: 'State Transitions Trigger Actions',
-      body: 'When a monitor flips from UP to DOWN, an Incident opens and an alert fires. When it recovers, the Incident resolves with duration. The dashboard reflects the change in real time.',
-    },
-    {
-      step: '05',
-      title: 'Teams Stay Informed',
-      body: 'Alerts reach teams via Email, Slack, Discord, or webhook. Status pages surface outages to customers. The Log Explorer gives engineers the evidence they need to debug quickly.',
-    },
-    {
-      step: '06',
-      title: 'Analytics Close the Loop',
-      body: 'SLA trends, latency distributions, downtime heatmaps, and incident MTTR give you the data to prioritize reliability investments and demonstrate service quality to stakeholders.',
-    },
-  ]
-
-  const useCases = [
-    {
-      title: 'SaaS Product Teams',
-      desc: 'Monitor your API, dashboard, auth, and payment endpoints. Catch regressions before users report them. Share a public status page to build customer trust during incidents.',
-      tags: ['API monitoring', 'Status pages', 'Slack alerts'],
-    },
-    {
-      title: 'DevOps & SRE Teams',
-      desc: 'Get deep evidence from every check log. Schedule maintenance windows around deployments. Track SLA compliance over 30, 7, and 1-day windows for reliability reviews.',
-      tags: ['Log Explorer', 'Maintenance windows', 'SLA tracking'],
-    },
-    {
-      title: 'Agencies & Freelancers',
-      desc: 'Monitor client sites from a single dashboard. Export CSV logs for client reports. Create branded public status pages for each client with their selected services.',
-      tags: ['Multi-monitor', 'CSV export', 'Public pages'],
-    },
-    {
-      title: 'Infrastructure Teams',
-      desc: 'Tag monitors by environment and region. Use bulk actions to pause entire groups during migrations. Track SSL certificate health across all domains from one view.',
-      tags: ['Tag filtering', 'Bulk actions', 'SSL tracking'],
-    },
-  ]
-
-  const stats = [
-  ]
 
   const landingPageSchema = {
     "@context": "https://schema.org",
@@ -630,19 +598,6 @@ function LandingPage() {
           </Reveal>
         </div>
       </header>
-
-      {/* ── Stats bar ── */}
-      <section className="py-12 bg-slate-50 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {stats.map(([value, label], i) => (
-            <Reveal key={label} delay={i * 60} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm text-center">
-              <p className="text-3xl font-extrabold text-slate-950">{value}</p>
-              <p className="mt-1 text-sm text-slate-600">{label}</p>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
 
       <section id="features" className="py-24 max-w-7xl mx-auto px-6">
         <SectionHeader
@@ -1001,7 +956,6 @@ function LandingPage() {
           </div>
         </div>
       </section>
-
 
       </main>
 

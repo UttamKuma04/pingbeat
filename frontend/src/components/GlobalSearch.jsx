@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getIncidents, getMonitors, getStatusPages } from '../services/api'
+import { getIncidents, getMonitorsCached, getStatusPagesCached } from '../services/api'
 
 function GlobalSearch() {
   const [open, setOpen] = useState(false)
@@ -24,7 +24,7 @@ function GlobalSearch() {
 
   useEffect(() => {
     if (!open) return
-    Promise.allSettled([getMonitors(), getIncidents(), getStatusPages()]).then(([monitorsRes, incidentsRes, pagesRes]) => {
+    Promise.allSettled([getMonitorsCached(), getIncidents(), getStatusPagesCached()]).then(([monitorsRes, incidentsRes, pagesRes]) => {
       setData({
         monitors: monitorsRes.status === 'fulfilled' ? monitorsRes.value.data.results || monitorsRes.value.data || [] : [],
         incidents: incidentsRes.status === 'fulfilled' ? incidentsRes.value.data.results || incidentsRes.value.data || [] : [],

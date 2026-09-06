@@ -94,6 +94,30 @@ function CreateMonitor({ editMode = false }) {
       setError(`You can create at most ${MAX_MONITORS} monitors.`)
       return
     }
+    const expectedStatusNum = parseInt(expectedStatus, 10)
+    if (!Number.isInteger(expectedStatusNum) || expectedStatusNum < 100 || expectedStatusNum > 599) {
+      setError('Expected status code must be a number between 100 and 599.')
+      return
+    }
+    const timeoutSecondsNum = parseInt(timeoutSeconds, 10)
+    if (!Number.isInteger(timeoutSecondsNum) || timeoutSecondsNum <= 0) {
+      setError('Timeout (seconds) must be a positive number.')
+      return
+    }
+    const intervalSecondsNum = parseInt(intervalSeconds, 10)
+    if (!Number.isInteger(intervalSecondsNum) || intervalSecondsNum <= 0) {
+      setError('Check interval (seconds) must be a positive number.')
+      return
+    }
+    let assertMaxResponseTimeMsNum = null
+    if (assertMaxResponseTimeMs !== '') {
+      assertMaxResponseTimeMsNum = parseInt(assertMaxResponseTimeMs, 10)
+      if (!Number.isInteger(assertMaxResponseTimeMsNum) || assertMaxResponseTimeMsNum < 0) {
+        setError('Max response time (ms) must be a non-negative number.')
+        return
+      }
+    }
+
     setLoading(true)
 
     let parsedHeaders = {}
@@ -105,14 +129,19 @@ function CreateMonitor({ editMode = false }) {
         setLoading(false)
         return
       }
+      if (typeof parsedHeaders !== 'object' || parsedHeaders === null || Array.isArray(parsedHeaders)) {
+        setError('Request headers must be a JSON object, e.g. {"Authorization": "Bearer token"}.')
+        setLoading(false)
+        return
+      }
     }
 
     const payload = {
       name,
       url,
-      expected_status: parseInt(expectedStatus, 10),
-      interval_seconds: parseInt(intervalSeconds, 10),
-      timeout_seconds: parseInt(timeoutSeconds, 10),
+      expected_status: expectedStatusNum,
+      interval_seconds: intervalSecondsNum,
+      timeout_seconds: timeoutSecondsNum,
       is_active: isActive,
       email_alerts: emailAlerts,
       http_method: httpMethod,
@@ -120,7 +149,7 @@ function CreateMonitor({ editMode = false }) {
       body,
       keyword: keyword.trim() || null,
       assert_keyword: assertKeyword.trim() || null,
-      assert_max_response_time_ms: assertMaxResponseTimeMs ? parseInt(assertMaxResponseTimeMs, 10) : null,
+      assert_max_response_time_ms: assertMaxResponseTimeMsNum,
       webhook_url: webhookUrl.trim() || null,
       notification_channel: notificationChannel,
       tags: tags.trim(),
@@ -160,7 +189,7 @@ function CreateMonitor({ editMode = false }) {
 
       <main className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
         <div className="mb-6">
-          <Link to="/" className="text-slate-600 hover:text-emerald-600 text-sm flex items-center space-x-2 transition-colors duration-200">
+          <Link to="/dashboard" className="text-slate-600 hover:text-emerald-600 text-sm flex items-center space-x-2 transition-colors duration-200">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -449,7 +478,7 @@ function CreateMonitor({ editMode = false }) {
                 {loading ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Monitor'}
               </button>
               <Link
-                to="/"
+                to="/dashboard"
                 className="w-full px-6 py-3 bg-slate-100 hover:bg-slate-200 text-center text-slate-700 font-semibold rounded-lg transition-all duration-200 text-sm sm:w-auto"
               >
                 Cancel

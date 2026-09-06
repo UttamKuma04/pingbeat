@@ -60,6 +60,7 @@ function StatusPage() {
     )
   }
 
+  const hasMonitors = data.monitors.length > 0
   const allUp = data.monitors.every((m) => m.is_active === false || m.is_up === true)
   const anyDown = data.monitors.some((m) => m.is_active === true && m.is_up === false)
 
@@ -79,17 +80,19 @@ function StatusPage() {
 
         {/* Global Banner status */}
         <div className={`p-5 rounded-xl border mb-10 flex items-start gap-4 sm:items-center ${
-          anyDown
+          !hasMonitors
+            ? 'bg-slate-100 border-slate-200 text-slate-600'
+            : anyDown
             ? 'bg-red-50 border-red-200 text-red-650'
             : allUp
             ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
             : 'bg-slate-100 border-slate-200 text-slate-600'
         }`}>
           <div className="relative">
-            <div className={`w-4 h-4 rounded-full ${anyDown ? 'bg-red-500 pulse-red' : 'bg-emerald-500 pulse-green'}`}></div>
+            <div className={`w-4 h-4 rounded-full ${!hasMonitors ? 'bg-slate-400' : anyDown ? 'bg-red-500 pulse-red' : 'bg-emerald-500 pulse-green'}`}></div>
           </div>
           <span className="font-bold text-lg">
-            {anyDown ? 'Outage Detected in some services' : 'All Systems Operational'}
+            {!hasMonitors ? 'No services configured yet' : anyDown ? 'Outage Detected in some services' : 'All Systems Operational'}
           </span>
         </div>
 

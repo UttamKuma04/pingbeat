@@ -35,6 +35,11 @@ function Dashboard() {
   const [selectedIds, setSelectedIds] = useState([])
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
 
+  // Prevents a manual refresh and the 30s poll tick from firing concurrent
+  // fetchMonitors() calls, where whichever response lands last would win
+  // regardless of which was actually requested last.
+  const isFetchingRef = useRef(false)
+
   useEffect(() => {
     // Request notification permissions
     if ('Notification' in window && Notification.permission === 'default') {
@@ -66,6 +71,8 @@ function Dashboard() {
   }
 
   async function fetchMonitors(showLoader = false) {
+    if (isFetchingRef.current) return
+    isFetchingRef.current = true
     if (showLoader) setLoading(true)
     try {
       const [res, analyticsRes, incidentsRes] = await Promise.allSettled([
@@ -118,6 +125,7 @@ function Dashboard() {
       setError('Failed to load monitors.')
     } finally {
       if (showLoader) setLoading(false)
+      isFetchingRef.current = false
     }
   }
 
@@ -228,7 +236,6 @@ function Dashboard() {
     const days = Math.ceil((new Date(monitor.ssl_expiry) - new Date()) / (1000 * 60 * 60 * 24))
     return days >= 0 && days <= 30
   }).length
-  const sparkSeed = [4, 7, 6, 9, 8, 10, 9, 12]
 
   function formatDate(dateStr) {
     if (!dateStr) return 'Never'
@@ -275,7 +282,7 @@ function Dashboard() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 mb-8">
-          <MetricCard loading={loading} label="Total Monitors" value={totalMonitors} tone="slate" sparkline={sparkSeed} delta="+2.1%" />
+          <MetricCard loading={loading} label="Total Monitors" value={totalMonitors} tone="slate" />
           <MetricCard loading={loading} label="Uptime" value={uptime} unit="%" tone={uptime >= 99 ? 'emerald' : uptime >= 95 ? 'amber' : 'red'} progress={uptime} sparkline={[98, 99, 99.2, 98.9, uptime || 99]} />
           <MetricCard loading={loading} label="Active Incidents" value={activeIncidents.length} tone={activeIncidents.length ? 'red' : 'emerald'} progress={activeIncidents.length ? 100 : 0} />
           <MetricCard loading={loading} label="Avg Response" value={avgResponse || 0} unit="ms" tone={avgResponse < 200 ? 'emerald' : avgResponse < 500 ? 'amber' : 'red'} sparkline={[220, 180, 240, 190, avgResponse || 200]} />

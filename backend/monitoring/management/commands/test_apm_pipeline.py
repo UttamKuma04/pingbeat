@@ -24,13 +24,19 @@ class Command(BaseCommand):
         endpoints = ['/api/users/', '/api/monitors/', '/api/apm/analytics/', '/api/logs/']
         methods = ['GET', 'POST', 'DELETE']
         status_codes = [200, 200, 200, 200, 201, 400, 404, 500]
+        # aggregate_apm_metrics() excludes the still-in-progress current
+        # minute ([start, end) where end is the current minute boundary), so
+        # metrics timestamped "now" would never be picked up by the
+        # aggregation call below. Back-date by a few minutes so this command
+        # actually exercises the pipeline it claims to test.
+        synthetic_time = time.time() - 180
         metrics = [
             {
                 'endpoint': random.choice(endpoints),
                 'method': random.choice(methods),
                 'status_code': random.choice(status_codes),
                 'response_time_ms': random.uniform(20, 800),
-                'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(synthetic_time)),
             }
             for _ in range(options['count'])
         ]

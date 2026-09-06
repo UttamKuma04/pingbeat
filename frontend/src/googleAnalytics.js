@@ -2,7 +2,7 @@ export function initGoogleAnalytics() {
   const id = import.meta.env.VITE_MEASUREMENT_ID || ''
   if (!id) return
 
-  if (window && window.gtag) {
+  if (window.gtag) {
     try { window.gtag('config', id) } catch (e) {}
     return
   }

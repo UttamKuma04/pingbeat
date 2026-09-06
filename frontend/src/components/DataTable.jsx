@@ -9,9 +9,11 @@ function DataTable({
   emptyTitle = 'No rows found',
   onRowClick,
   renderExpanded,
+  defaultSortKey,
+  defaultSortDir = 'asc',
 }) {
-  const [sortKey, setSortKey] = useState(columns[0]?.key || '')
-  const [sortDir, setSortDir] = useState('asc')
+  const [sortKey, setSortKey] = useState(defaultSortKey || columns[0]?.key || '')
+  const [sortDir, setSortDir] = useState(defaultSortDir)
   const [page, setPage] = useState(1)
   const [expanded, setExpanded] = useState(null)
 
@@ -69,7 +71,7 @@ function DataTable({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {pagedRows.map((row, index) => {
-              const key = typeof rowKey === 'function' ? rowKey(row) : row[rowKey] || index
+              const key = typeof rowKey === 'function' ? rowKey(row) : row[rowKey] ?? index
               const isExpanded = expanded === key
               return (
                 <React.Fragment key={key}>

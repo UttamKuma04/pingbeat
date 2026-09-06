@@ -27,6 +27,7 @@ services:
       - "8000:8000"
     environment:
       - DEBUG=True
+      - SECRET_KEY=django-insecure-local-docker-dev-only-not-for-production
       - DB_NAME=pingbeat
       - DB_USER=postgres
       - DB_PASSWORD=postgres
@@ -47,6 +48,7 @@ services:
     command: celery -A config worker --loglevel=info
     environment:
       - DEBUG=True
+      - SECRET_KEY=django-insecure-local-docker-dev-only-not-for-production
       - DB_NAME=pingbeat
       - DB_USER=postgres
       - DB_PASSWORD=postgres
@@ -65,6 +67,7 @@ services:
     command: celery -A config beat --loglevel=info
     environment:
       - DEBUG=True
+      - SECRET_KEY=django-insecure-local-docker-dev-only-not-for-production
       - DB_NAME=pingbeat
       - DB_USER=postgres
       - DB_PASSWORD=postgres

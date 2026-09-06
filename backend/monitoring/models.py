@@ -1,6 +1,9 @@
+import logging
 import secrets
 from django.db import models
 from django.contrib.auth.models import User
+
+logger = logging.getLogger(__name__)
 
 def generate_api_key():
     return f"pb_{secrets.token_urlsafe(32)}"
@@ -205,7 +208,11 @@ def setup_periodic_tasks(sender, **kwargs):
         return
     try:
         from django_celery_beat.models import PeriodicTask, IntervalSchedule, CrontabSchedule
-        
+    except ImportError:
+        # django_celery_beat not installed/migrated yet - nothing to do.
+        return
+
+    try:
         schedule_30s, _ = IntervalSchedule.objects.get_or_create(every=30, period='seconds')
         PeriodicTask.objects.get_or_create(
             name='Check Monitors',
@@ -241,4 +248,4 @@ def setup_periodic_tasks(sender, **kwargs):
             }
         )
     except Exception:
-        pass
+        logger.exception("Failed to set up Celery Beat periodic tasks after migrate")

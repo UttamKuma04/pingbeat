@@ -1,8 +1,7 @@
-import requests
 from celery import shared_task
-from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.mail import send_mail
+
+from config.emailing import send_transactional_email
 
 
 @shared_task
@@ -26,68 +25,4 @@ def send_registration_confirmation_email(user_id):
         "The PingBEAT Team"
     )
 
-    brevo_key = getattr(settings, "BREVO_API_KEY", None)
-    brevo_email = getattr(settings, "BREVO_SENDER_EMAIL", None)
-    brevo_name = getattr(settings, "BREVO_SENDER_NAME", "PingBEAT")
-    from_email = brevo_email or getattr(
-        settings,
-        "DEFAULT_FROM_EMAIL",
-        "alerts@pingbeat.com",
-    )
-
-    if brevo_key and brevo_email:
-        try:
-            response = requests.post(
-                "https://api.brevo.com/v3/smtp/email",
-                json={
-                    "sender": {
-                        "name": brevo_name,
-                        "email": brevo_email,
-                    },
-                    "to": [
-                        {
-                            "email": user.email,
-                            "name": user.email,
-                        }
-                    ],
-                    "subject": subject,
-                    "textContent": message,
-                },
-                headers={
-                    "accept": "application/json",
-                    "content-type": "application/json",
-                    "api-key": brevo_key,
-                },
-                timeout=10,
-            )
-
-            if response.status_code in (200, 201, 202):
-                return (
-                    f"Registration email sent to "
-                    f"{user.email} via Brevo API."
-                )
-
-            print(
-                f"Brevo registration email failed for "
-                f"{user.email}: "
-                f"{response.status_code} {response.text}"
-            )
-
-        except requests.RequestException as exc:
-            print(
-                f"Brevo registration email request failed "
-                f"for {user.email}: {exc}"
-            )
-
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=from_email,
-        recipient_list=[user.email],
-        fail_silently=False,
-    )
-
-    return (
-        f"Registration email sent to "
-        f"{user.email} via Django email backend."
-    )
+    return send_transactional_email(subject, message, user.email, recipient_name=user.email)

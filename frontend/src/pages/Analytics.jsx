@@ -8,6 +8,19 @@ import SparklineChart from '../components/SparklineChart'
 import FilterChips from '../components/FilterChips'
 import EmptyState from '../components/EmptyState'
 import { getAnalytics, getIncidents, getMonitors } from '../services/api'
+import { formatDurationRounded } from '../utils/duration'
+
+// Module-level so DataTable's internal sort useMemo (keyed on the columns
+// prop) actually memoizes instead of re-sorting every render, which is what
+// happened when this array was recreated inline on every render.
+const MONITOR_PERFORMANCE_COLUMNS = [
+  { key: 'name', header: 'Name', render: (row) => <Link to={`/monitors/${row.id}`} className="font-semibold text-slate-900 hover:text-emerald-700">{row.name}</Link> },
+  { key: 'current_status', header: 'Status', render: (row) => <span className={`rounded-full px-2 py-1 text-xs font-bold ${row.is_up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{row.current_status || (row.is_up ? 'UP' : 'DOWN')}</span> },
+  { key: 'last_response_time', header: 'Avg Latency', align: 'right', render: (row) => <span className="font-mono text-xs">{row.last_response_time || '-'} ms</span> },
+  { key: 'p95', header: 'P95', align: 'right', render: (row) => <span className="font-mono text-xs">{Math.round((row.last_response_time || 0) * 1.35) || '-'} ms</span> },
+  { key: 'trend', header: 'Trend', sortable: false, render: (row) => <SparklineChart values={[row.last_response_time || 180, (row.last_response_time || 180) * 0.92, (row.last_response_time || 180) * 1.08]} tone={row.is_up ? 'emerald' : 'red'} /> },
+  { key: 'last_checked', header: 'Last Checked', render: (row) => <span className="text-xs text-slate-500">{row.last_checked ? new Date(row.last_checked).toLocaleString() : 'Never'}</span> },
+]
 
 function Analytics() {
   const [metrics, setMetrics] = useState(null)
@@ -143,7 +156,7 @@ function Analytics() {
                 <MetricCard label="Active Monitors" value={metrics.active_monitors} unit={`/ ${metrics.total_monitors}`} tone="emerald" />
                 <MetricCard label="Avg Response" value={metrics.avg_response_time} unit="ms" tone="blue" sparkline={[240, 210, 190, metrics.avg_response_time || 200]} />
                 <MetricCard label="Active Incidents" value={activeIncidents} tone={activeIncidents ? 'red' : 'emerald'} />
-                <MetricCard label="Total Checks" value={metrics.total_checks || latencyValues.length || 0} tone="slate" />
+                <MetricCard label="Monitors Reporting" value={latencyValues.length} tone="slate" />
                 <MetricCard label="MTTR" value={mttr} unit="m" tone="amber" />
               </div>
             </div>
@@ -242,14 +255,7 @@ function Analytics() {
               <DataTable
                 rows={filteredMonitors}
                 emptyTitle="No monitors match the selected analytics filters"
-                columns={[
-                  { key: 'name', header: 'Name', render: (row) => <Link to={`/monitors/${row.id}`} className="font-semibold text-slate-900 hover:text-emerald-700">{row.name}</Link> },
-                  { key: 'current_status', header: 'Status', render: (row) => <span className={`rounded-full px-2 py-1 text-xs font-bold ${row.is_up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{row.current_status || (row.is_up ? 'UP' : 'DOWN')}</span> },
-                  { key: 'last_response_time', header: 'Avg Latency', align: 'right', render: (row) => <span className="font-mono text-xs">{row.last_response_time || '-'} ms</span> },
-                  { key: 'p95', header: 'P95', align: 'right', render: (row) => <span className="font-mono text-xs">{Math.round((row.last_response_time || 0) * 1.35) || '-'} ms</span> },
-                  { key: 'trend', header: 'Trend', sortable: false, render: (row) => <SparklineChart values={[row.last_response_time || 180, (row.last_response_time || 180) * 0.92, (row.last_response_time || 180) * 1.08]} tone={row.is_up ? 'emerald' : 'red'} /> },
-                  { key: 'last_checked', header: 'Last Checked', render: (row) => <span className="text-xs text-slate-500">{row.last_checked ? new Date(row.last_checked).toLocaleString() : 'Never'}</span> },
-                ]}
+                columns={MONITOR_PERFORMANCE_COLUMNS}
                 pageSize={8}
               />
             </section>
@@ -291,7 +297,7 @@ function Analytics() {
                     </div>
                     {incident.duration_seconds !== null && incident.duration_seconds !== undefined && (
                       <div className="rounded border border-slate-200 bg-slate-100 px-2 py-1 text-right font-mono text-xs font-semibold text-slate-700">
-                        Downtime: {incident.duration_seconds < 60 ? `${incident.duration_seconds}s` : `${Math.round(incident.duration_seconds / 60)} mins`}
+                        Downtime: {formatDurationRounded(incident.duration_seconds)}
                       </div>
                     )}
                   </div>

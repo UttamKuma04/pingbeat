@@ -1,3 +1,4 @@
+import logging
 import requests
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -5,18 +6,27 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db.models import Q
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import EmailTokenObtainPairSerializer, RegisterSerializer, UserSerializer
 from .tasks import send_registration_confirmation_email
 
+logger = logging.getLogger(__name__)
+
+
+class AuthRateThrottle(AnonRateThrottle):
+    """Per-IP throttle for unauthenticated auth endpoints (register/login/google-login)."""
+    scope = 'auth'
+
 
 class EmailTokenObtainPairView(TokenObtainPairView):
     """JWT login endpoint that accepts an email field."""
     serializer_class = EmailTokenObtainPairSerializer
+    throttle_classes = [AuthRateThrottle]
 
 
 def _auth_payload_for_user(user):
@@ -34,12 +44,13 @@ def _queue_registration_confirmation_email(user):
     """Queue confirmation email delivery through Redis/Celery."""
     try:
         send_registration_confirmation_email.delay(user.id)
-    except Exception as exc:
-        print(f"Registration confirmation email could not be queued for {user.email}: {exc}")
+    except Exception:
+        logger.exception("Registration confirmation email could not be queued for %s", user.email)
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([AuthRateThrottle])
 def register(request):
     """Register a new user and return JWT tokens."""
     serializer = RegisterSerializer(data=request.data)
@@ -52,6 +63,7 @@ def register(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([AuthRateThrottle])
 def google_login(request):
     """Validate a Google ID token and return JWT tokens."""
     credential = request.data.get('credential')

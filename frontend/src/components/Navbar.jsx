@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { getIncidents, getMe } from '../services/api'
+import { getIncidents, getMe, clearApiCache } from '../services/api'
 import BrandLogo from './BrandLogo'
 import Breadcrumb from './Breadcrumb'
 import GlobalSearch from './GlobalSearch'
@@ -116,6 +116,7 @@ function Navbar() {
   function handleLogout() {
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
+    clearApiCache()
     navigate('/login')
   }
 
@@ -213,7 +214,7 @@ function Navbar() {
         </div>
       )}
 
-      <header className="fixed left-0 right-0 top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-xl lg:left-64 lg:pinbeat-topbar">
+      <header className="fixed left-0 right-0 top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-xl lg:left-64">
         <div className="flex h-16 min-w-0 items-center gap-2 px-3 sm:gap-3 sm:px-6">
           <button
             type="button"

@@ -1,51 +1,20 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
+import useNowTick from '../hooks/useNowTick'
+import { formatDurationFull } from '../utils/duration'
+
+function computeDurationStr(now, { isActive, statusChangedAt, isUp, status }) {
+  if (isActive === false || status === 'maintenance' || status === 'MAINTENANCE') return ''
+  if (!statusChangedAt || isUp === null || isUp === undefined) return ''
+
+  const diffSecs = Math.floor((now - new Date(statusChangedAt).getTime()) / 1000)
+  return formatDurationFull(diffSecs)
+}
 
 function LiveStatusBadge({ isUp, isActive, statusChangedAt, status, separateDuration = false }) {
-  const [durationStr, setDurationStr] = useState('')
-
-  useEffect(() => {
-    function updateDuration() {
-      if (isActive === false || status === 'maintenance' || status === 'MAINTENANCE') {
-        setDurationStr('')
-        return
-      }
-      if (!statusChangedAt || isUp === null || isUp === undefined) {
-        setDurationStr('')
-        return
-      }
-
-      const diffMs = new Date() - new Date(statusChangedAt)
-      const diffSecs = Math.floor(diffMs / 1000)
-
-      if (diffSecs < 0) {
-        setDurationStr('0s')
-        return
-      }
-
-      if (diffSecs < 60) {
-        setDurationStr(`${diffSecs}s`)
-      } else if (diffSecs < 3600) {
-        const mins = Math.floor(diffSecs / 60)
-        const secs = diffSecs % 60
-        setDurationStr(`${mins}m ${secs}s`)
-      } else if (diffSecs < 86400) {
-        const hours = Math.floor(diffSecs / 3600)
-        const mins = Math.floor((diffSecs % 3600) / 60)
-        const secs = diffSecs % 60
-        setDurationStr(`${hours}h ${mins}m ${secs}s`)
-      } else {
-        const days = Math.floor(diffSecs / 86400)
-        const hours = Math.floor((diffSecs % 86400) / 3600)
-        const mins = Math.floor((diffSecs % 3600) / 60)
-        const secs = diffSecs % 60
-        setDurationStr(`${days}d ${hours}h ${mins}m ${secs}s`)
-      }
-    }
-
-    updateDuration()
-    const timer = setInterval(updateDuration, 1000)
-    return () => clearInterval(timer)
-  }, [isUp, isActive, statusChangedAt, status])
+  // useNowTick shares one interval across every rendered badge instead of
+  // each badge running its own setInterval.
+  const now = useNowTick()
+  const durationStr = computeDurationStr(now, { isActive, statusChangedAt, isUp, status })
 
   if (status === 'maintenance' || status === 'MAINTENANCE') {
     return (

@@ -83,7 +83,7 @@ class PingBeatBuffer:
             process_apm_metrics(application.id, metrics)
             aggregate_apm_metrics(60)
         except Exception:
-            pass
+            logger.warning('PingBEAT APM local flush failed for api_key=%s', api_key, exc_info=True)
 
     def _schedule_flush(self):
         interval = getattr(settings, 'PINGBEAT_APM_FLUSH_INTERVAL_SECONDS', 30)

@@ -121,6 +121,13 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Only the auth endpoints (register/login/google-login) opt into the
+    # 'auth' scope via AuthRateThrottle; everything else is intentionally
+    # left unthrottled so public status pages/badges aren't put at risk of
+    # a blanket per-IP cap that could break legitimate shared/embedded use.
+    'DEFAULT_THROTTLE_RATES': {
+        'auth': '10/min',
+    },
 }
 
 if not DEBUG:
@@ -131,7 +138,7 @@ if not DEBUG:
 
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -248,7 +255,11 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend' if DEBUG
+    else 'django.core.mail.backends.smtp.EmailBackend'
+)
 DEFAULT_FROM_EMAIL = os.environ.get('BREVO_SENDER_EMAIL', 'alerts@pingbeat.com')
 
 BREVO_API_KEY = os.environ.get('BREVO_API_KEY')
@@ -281,4 +292,6 @@ PINGBEAT_APM_EXCLUDED_PATHS = tuple(
 )
 APM_INGEST_RATE_LIMIT = int(os.environ.get('APM_INGEST_RATE_LIMIT', '60'))
 APM_METRIC_RETENTION_DAYS = int(os.environ.get('APM_METRIC_RETENTION_DAYS', '7'))
+APM_SUMMARY_RETENTION_DAYS = int(os.environ.get('APM_SUMMARY_RETENTION_DAYS', '90'))
+INCIDENT_RETENTION_DAYS = int(os.environ.get('INCIDENT_RETENTION_DAYS', '180'))
 APM_SLOW_ENDPOINT_THRESHOLD_MS = int(os.environ.get('APM_SLOW_ENDPOINT_THRESHOLD_MS', '2000'))

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import {
@@ -12,6 +12,8 @@ import {
   rotateApmApplicationKey,
 } from '../services/api'
 import SparklineChart from '../components/SparklineChart'
+import MetricCard from '../components/MetricCard'
+import EmptyState from '../components/EmptyState'
 
 const MAX_API_KEYS = 5
 
@@ -31,6 +33,7 @@ function ApmDashboard() {
   const [error, setError] = useState('')
   const [copiedKey, setCopiedKey] = useState('')
   const isApplicationLimitReached = applicationCount >= MAX_API_KEYS
+  const apmRequestIdRef = useRef(0)
 
   const queryParams = useMemo(() => {
     const params = { hours }
@@ -63,6 +66,9 @@ function ApmDashboard() {
   }
 
   async function fetchApmData() {
+    // Guards against a slower older request (from before the user switched
+    // application/time-range filters) overwriting the results of a newer one.
+    const requestId = ++apmRequestIdRef.current
     setLoading(true)
     try {
       const [analyticsRes, endpointsRes, trafficRes, errorsRes] = await Promise.all([
@@ -71,15 +77,19 @@ function ApmDashboard() {
         getApmTraffic(queryParams),
         getApmErrors(queryParams),
       ])
+      if (requestId !== apmRequestIdRef.current) return
       setAnalytics(analyticsRes.data)
       setEndpoints(endpointsRes.data.results || endpointsRes.data || [])
       setTraffic(trafficRes.data.results || trafficRes.data || [])
       setErrors(errorsRes.data)
       setError('')
     } catch (err) {
+      if (requestId !== apmRequestIdRef.current) return
       setError('Failed to load APM analytics.')
     } finally {
-      setLoading(false)
+      if (requestId === apmRequestIdRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -147,7 +157,11 @@ function ApmDashboard() {
     .sort((a, b) => (b.avg_response_time || 0) - (a.avg_response_time || 0))
     .slice(0, 5)
   const apdex = analytics?.apdex_score ?? 0
-  const errorMax = Math.max(...traffic.map((row) => row.errors_count || row.error_count || 0), 1)
+  // The traffic endpoint reports error_rate (%) rather than a raw error
+  // count, so derive an approximate count from requests_count for the
+  // overlay bars below.
+  const errorCountOf = (row) => ((row.requests_count || 0) * (row.error_rate || 0)) / 100
+  const errorMax = Math.max(...traffic.map(errorCountOf), 1)
   const hasNoMetrics = !loading && applications.length > 0 && (analytics?.total_requests || 0) === 0
 
   return (
@@ -343,12 +357,12 @@ function ApmDashboard() {
             {loading ? (
               <div className="h-56 skeleton rounded-lg"></div>
             ) : traffic.length === 0 ? (
-              <EmptyState label="No traffic data yet." />
+              <EmptyState title="No traffic data yet." />
             ) : (
               <div className="flex h-56 items-end gap-1 border-b border-slate-200 px-1 pt-4">
                 {traffic.slice(-80).map((row) => {
                   const height = Math.max(((row.requests_count || 0) / maxRequests) * 100, 4)
-                  const errorHeight = Math.max((((row.errors_count || row.error_count || 0) / errorMax) * 100), 0)
+                  const errorHeight = Math.max(((errorCountOf(row) / errorMax) * 100), 0)
                   return (
                     <div key={row.timestamp} className="group relative flex flex-1 items-end">
                       <div
@@ -465,22 +479,6 @@ function HealthBadge({ errorRate }) {
   return <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${tone}`}>{label}</span>
 }
 
-function MetricCard({ label, value, tone = 'slate' }) {
-  const tones = {
-    slate: 'text-slate-950',
-    blue: 'text-blue-600',
-    red: 'text-red-600',
-    emerald: 'text-emerald-600',
-  }
-
-  return (
-    <div className="glass-card p-5">
-      <p className="mb-1 text-xs font-semibold uppercase text-slate-500">{label}</p>
-      <p className={`text-2xl font-extrabold ${tones[tone]}`}>{value}</p>
-    </div>
-  )
-}
-
 function MetricRow({ label, value }) {
   return (
     <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3">
@@ -492,7 +490,7 @@ function MetricRow({ label, value }) {
 
 function EndpointTable({ rows }) {
   if (!rows.length) {
-    return <EmptyState label="No endpoint data yet." />
+    return <EmptyState title="No endpoint data yet." />
   }
 
   return (
@@ -541,7 +539,7 @@ function Breakdown({ title, rows, labelKey }) {
     <div>
       <h3 className="mb-3 text-sm font-semibold text-slate-700">{title}</h3>
       {rows.length === 0 ? (
-        <EmptyState label="No errors found." />
+        <EmptyState title="No errors found." />
       ) : (
         <div className="space-y-2">
           {rows.map((row) => (
@@ -580,14 +578,6 @@ function ErrorGroupTable({ rows }) {
           ))}
         </tbody>
       </table>
-    </div>
-  )
-}
-
-function EmptyState({ label }) {
-  return (
-    <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
-      {label}
     </div>
   )
 }

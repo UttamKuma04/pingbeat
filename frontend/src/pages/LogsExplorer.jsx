@@ -13,6 +13,17 @@ function getLogStatus(log) {
   return 'UNKNOWN'
 }
 
+// Module-level so DataTable's internal sort useMemo (keyed on the columns
+// prop) actually memoizes instead of re-sorting every render.
+const LOG_TABLE_COLUMNS = [
+  { key: 'checked_at', header: 'Timestamp', render: (row) => <span className="text-xs text-slate-600">{new Date(row.checked_at).toLocaleString()}</span> },
+  { key: 'monitor_name', header: 'Monitor', render: (row) => <span className="font-semibold text-slate-900">{row.monitor_name}</span> },
+  { key: 'status', header: 'Status', render: (row) => <span className={`rounded-full px-2 py-1 text-xs font-bold ${getLogStatus(row) === 'UP' ? 'bg-emerald-50 text-emerald-700' : getLogStatus(row) === 'DOWN' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>{getLogStatus(row)}</span> },
+  { key: 'status_code', header: 'Code', align: 'right', render: (row) => <span className="font-mono text-xs">{row.status_code || '-'}</span> },
+  { key: 'response_time_ms', header: 'Latency', align: 'right', render: (row) => <span className="font-mono text-xs">{row.response_time_ms !== null && row.response_time_ms !== undefined ? `${row.response_time_ms} ms` : '-'}</span> },
+  { key: 'region', header: 'Region', render: (row) => <span className="font-mono text-xs text-slate-500">{row.region || 'default'}</span> },
+]
+
 function LogsExplorer() {
   const [logs, setLogs] = useState([])
   const [monitors, setMonitors] = useState([])
@@ -163,14 +174,7 @@ function LogsExplorer() {
                 rowKey={(row) => row.id || `${row.monitor_name}-${row.checked_at}`}
                 emptyTitle="No logs match these filters"
                 onRowClick={setSelectedLog}
-                columns={[
-                  { key: 'checked_at', header: 'Timestamp', render: (row) => <span className="text-xs text-slate-600">{new Date(row.checked_at).toLocaleString()}</span> },
-                  { key: 'monitor_name', header: 'Monitor', render: (row) => <span className="font-semibold text-slate-900">{row.monitor_name}</span> },
-                  { key: 'status', header: 'Status', render: (row) => <span className={`rounded-full px-2 py-1 text-xs font-bold ${getLogStatus(row) === 'UP' ? 'bg-emerald-50 text-emerald-700' : getLogStatus(row) === 'DOWN' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>{getLogStatus(row)}</span> },
-                  { key: 'status_code', header: 'Code', align: 'right', render: (row) => <span className="font-mono text-xs">{row.status_code || '-'}</span> },
-                  { key: 'response_time_ms', header: 'Latency', align: 'right', render: (row) => <span className="font-mono text-xs">{row.response_time_ms !== null && row.response_time_ms !== undefined ? `${row.response_time_ms} ms` : '-'}</span> },
-                  { key: 'region', header: 'Region', render: (row) => <span className="font-mono text-xs text-slate-500">{row.region || 'default'}</span> },
-                ]}
+                columns={LOG_TABLE_COLUMNS}
                 renderExpanded={(row) => (
                   <pre className="overflow-x-auto rounded bg-slate-950 p-4 text-xs text-slate-100">{JSON.stringify(row, null, 2)}</pre>
                 )}

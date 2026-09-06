@@ -850,9 +850,6 @@ function ApmSdkDocs() {
             <ExampleSection title="Rate Limit Headers" code={rateLimitBlock} codeKey="rate-limits" copiedKey={copiedKey} onCopy={copyText} />
             <ExampleSection title="Swagger Import" code={swaggerImportBlock} codeKey="swagger-import" copiedKey={copiedKey} onCopy={copyText} />
             <ExampleSection title={`${example.label} Example`} code={example.setup} codeKey={`${activeExample}-setup`} copiedKey={copiedKey} onCopy={copyText} />
-            {example.attach && (
-              <ExampleSection title="Attach" code={example.attach} codeKey={`${activeExample}-attach`} copiedKey={copiedKey} onCopy={copyText} />
-            )}
             <ExampleSection title="Skip Paths" code={skipBlock} codeKey="skip" copiedKey={copiedKey} onCopy={copyText} />
           </div>
         </aside>

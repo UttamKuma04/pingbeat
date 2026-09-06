@@ -1,38 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React from 'react'
 import { Link } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
 import SeoHead from '../components/SeoHead'
-
-function Reveal({ children, delay = 0, className = '' }) {
-  const ref = useRef(null)
-  const [isVisible, setIsVisible] = useState(false)
-
-  useEffect(() => {
-    const node = ref.current
-    if (!node) return undefined
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true)
-          observer.unobserve(entry.target)
-        }
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
-
-  return (
-    <div
-      ref={ref}
-      className={`transition-all duration-700 ease-out ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'} ${className}`}
-      style={{ transitionDelay: `${delay}ms` }}
-    >
-      {children}
-    </div>
-  )
-}
+import Reveal from '../components/Reveal'
 
 function SectionHeader({ eyebrow, title, subtitle, centered = false }) {
   return (
@@ -44,180 +14,179 @@ function SectionHeader({ eyebrow, title, subtitle, centered = false }) {
   )
 }
 
+const timeline = [
+  {
+    phase: 'Problem',
+    title: 'Too many tools, not enough clarity',
+    body: 'Most monitoring stacks involve separate tools for uptime checks, incident tracking, SSL alerts, performance metrics, and status pages. Stitching them together creates alert fatigue, missing context, and gaps during incidents.',
+  },
+  {
+    phase: 'Decision',
+    title: 'Self-hosted, unified, and purposeful',
+    body: 'PingBEAT consolidates uptime monitoring, SSL tracking, incident management, log exploration, APM metrics, and public status pages into a single platform you deploy and control — no vendor lock-in, no per-monitor pricing surprises.',
+  },
+  {
+    phase: 'Design',
+    title: 'Evidence-first architecture',
+    body: 'Every check creates a durable log record. Incidents are derived from state transitions, not manual reports. The dashboard shows what you need to act, not noise. Reliability history is always one click away.',
+  },
+  {
+    phase: 'Result',
+    title: 'A platform built for operators',
+    body: 'PingBEAT is designed around the habits of people who actually respond to incidents: fast scanning, clear evidence, targeted alerts, and historical context that makes postmortems easier.',
+  },
+]
+
+const designPrinciples = [
+  {
+    word: 'Fast',
+    color: 'text-emerald-600',
+    border: 'border-emerald-200',
+    bg: 'bg-emerald-50',
+    desc: 'The dashboard is built for scanning, not reading. Status badges, latency numbers, and incident counts are visible at a glance. Filtering and search narrow to the signal you need without leaving the page.',
+  },
+  {
+    word: 'Traceable',
+    color: 'text-cyan-600',
+    border: 'border-cyan-200',
+    bg: 'bg-cyan-50',
+    desc: 'Every outage is backed by check logs with timestamps, status codes, response times, and error messages. Incident records carry the full context from open to resolve. Nothing relies on memory or manual entry.',
+  },
+  {
+    word: 'Calm',
+    color: 'text-amber-600',
+    border: 'border-amber-200',
+    bg: 'bg-amber-50',
+    desc: 'Maintenance windows silence alerts during planned work. Status badges are clear and unambiguous. Filters reduce list noise. The goal is signal clarity — not alert maximalism.',
+  },
+  {
+    word: 'Controlled',
+    color: 'text-slate-700',
+    border: 'border-slate-200',
+    bg: 'bg-slate-50',
+    desc: 'Self-hosted by default. Your monitor targets, alert configuration, check logs, and API keys stay in your infrastructure. You choose the database, the worker count, and the retention policy.',
+  },
+]
+
+const monitoringCapabilities = [
+  {
+    category: 'Check Configuration',
+    items: [
+      'HTTP/HTTPS endpoint monitoring',
+      'GET, POST, PUT, DELETE, HEAD methods',
+      'Custom request headers per monitor',
+      'Request body for POST/PUT checks',
+      'Expected HTTP status code validation',
+      'Response keyword assertion',
+      'Maximum response time assertion',
+      'Check intervals: 30s to 1 hour',
+      'Configurable timeout per monitor',
+      'Tags for grouping and filtering',
+    ],
+  },
+  {
+    category: 'SSL & Security',
+    items: [
+      'Certificate expiry date capture',
+      'Issuer information tracking',
+      'Days-remaining calculation',
+      'Expiry warning banners on detail pages',
+      'SSL status on public status pages',
+      'Warning threshold alerts',
+    ],
+  },
+  {
+    category: 'Incident Management',
+    items: [
+      'Auto-open incidents on DOWN transition',
+      'Auto-resolve on recovery',
+      'Duration calculation on resolution',
+      'Error message preservation',
+      'Per-monitor incident history',
+      'Live duration timers on active incidents',
+      'MTTR calculation across incidents',
+      'Acknowledgement workflow',
+    ],
+  },
+  {
+    category: 'Analytics & Reporting',
+    items: [
+      '24h, 7d, 30d SLA percentages',
+      'Average, min, max latency',
+      'Response time chart (last 24h)',
+      'Fleet-wide health overview',
+      'Latency distribution histograms',
+      'Downtime heatmap by hour',
+      'Slowest services ranking',
+      'CSV log export per monitor',
+      'Cross-monitor SLA aggregation',
+    ],
+  },
+  {
+    category: 'Status Pages',
+    items: [
+      'Multiple status pages',
+      'Custom URL slugs',
+      'Monitor selection per page',
+      '90-day status history grid',
+      'Active incident display',
+      'SSL certificate info on tiles',
+      'Public or private access control',
+      'Embeddable status badges',
+    ],
+  },
+  {
+    category: 'APM Integration',
+    items: [
+      'Application registration with API keys',
+      'Endpoint-level request tracking',
+      'P95 and P99 latency metrics',
+      'Error rate per endpoint',
+      'Apdex score calculation',
+      'Traffic volume over time',
+      'Multi-environment support',
+      'Top and slowest endpoint rankings',
+    ],
+  },
+]
+
+const faq = [
+  {
+    q: 'How does PingBEAT compare to UptimeRobot?',
+    a: 'UptimeRobot is a hosted SaaS service with limits on monitor counts by plan. PingBEAT is self-hosted with no per-monitor fees, adds response assertions, maintenance windows, a full log explorer, APM integration, and gives you complete data ownership.',
+  },
+  {
+    q: 'How does it compare to Better Stack Uptime?',
+    a: 'Better Stack has a polished hosted product with a strong incident management focus. PingBEAT provides similar uptime monitoring and incident tracking with the addition of APM metrics, self-hosting, and no vendor dependency — at the cost of managing your own infrastructure.',
+  },
+  {
+    q: 'What about Pingdom?',
+    a: 'Pingdom is a mature enterprise product with real-user monitoring and synthetic transactions. PingBEAT focuses on API and HTTP endpoint monitoring with a broader feature set per dollar — especially for teams that want to self-host and avoid per-check pricing.',
+  },
+  {
+    q: 'How is PingBEAT different from Datadog or New Relic?',
+    a: 'Datadog and New Relic are comprehensive observability platforms with agent-based APM, infrastructure monitoring, log management, and complex pricing. PingBEAT is intentionally narrower — focused on uptime, HTTP monitoring, and application performance metrics with a much smaller operational footprint.',
+  },
+  {
+    q: 'Can I run PingBEAT on my own server?',
+    a: 'Yes. PingBEAT is designed to be self-hosted. The backend runs on Django + Celery + Redis + PostgreSQL. The frontend is a Vite React app. Docker configuration is included to simplify deployment.',
+  },
+  {
+    q: 'How does the check scheduler work?',
+    a: 'Celery Beat triggers check_monitors every 30 seconds. The task evaluates which monitors are due for a check based on their interval_seconds setting, skips those in active maintenance windows, and dispatches individual probe tasks to Celery workers.',
+  },
+  {
+    q: 'What happens during a maintenance window?',
+    a: 'Monitors inside an active maintenance window are skipped by the check scheduler and their logs are marked with status="maintenance". Alerts are suppressed. The monitor shows an ACTIVE NOW badge on its maintenance window list during the window.',
+  },
+  {
+    q: 'How are multi-region probes supported?',
+    a: 'Celery workers can be tagged with a REGION environment variable. The check_monitors task reads this tag and stores it on each MonitorLog. The Log Explorer lets you filter by region to see which geography a check originated from.',
+  },
+]
+
 function AboutPage() {
   const isAuthenticated = !!localStorage.getItem('access_token')
-
-  const timeline = [
-    {
-      phase: 'Problem',
-      title: 'Too many tools, not enough clarity',
-      body: 'Most monitoring stacks involve separate tools for uptime checks, incident tracking, SSL alerts, performance metrics, and status pages. Stitching them together creates alert fatigue, missing context, and gaps during incidents.',
-    },
-    {
-      phase: 'Decision',
-      title: 'Self-hosted, unified, and purposeful',
-      body: 'PingBEAT consolidates uptime monitoring, SSL tracking, incident management, log exploration, APM metrics, and public status pages into a single platform you deploy and control — no vendor lock-in, no per-monitor pricing surprises.',
-    },
-    {
-      phase: 'Design',
-      title: 'Evidence-first architecture',
-      body: 'Every check creates a durable log record. Incidents are derived from state transitions, not manual reports. The dashboard shows what you need to act, not noise. Reliability history is always one click away.',
-    },
-    {
-      phase: 'Result',
-      title: 'A platform built for operators',
-      body: 'PingBEAT is designed around the habits of people who actually respond to incidents: fast scanning, clear evidence, targeted alerts, and historical context that makes postmortems easier.',
-    },
-  ]
-
-  const designPrinciples = [
-    {
-      word: 'Fast',
-      color: 'text-emerald-600',
-      border: 'border-emerald-200',
-      bg: 'bg-emerald-50',
-      desc: 'The dashboard is built for scanning, not reading. Status badges, latency numbers, and incident counts are visible at a glance. Filtering and search narrow to the signal you need without leaving the page.',
-    },
-    {
-      word: 'Traceable',
-      color: 'text-cyan-600',
-      border: 'border-cyan-200',
-      bg: 'bg-cyan-50',
-      desc: 'Every outage is backed by check logs with timestamps, status codes, response times, and error messages. Incident records carry the full context from open to resolve. Nothing relies on memory or manual entry.',
-    },
-    {
-      word: 'Calm',
-      color: 'text-amber-600',
-      border: 'border-amber-200',
-      bg: 'bg-amber-50',
-      desc: 'Maintenance windows silence alerts during planned work. Status badges are clear and unambiguous. Filters reduce list noise. The goal is signal clarity — not alert maximalism.',
-    },
-    {
-      word: 'Controlled',
-      color: 'text-slate-700',
-      border: 'border-slate-200',
-      bg: 'bg-slate-50',
-      desc: 'Self-hosted by default. Your monitor targets, alert configuration, check logs, and API keys stay in your infrastructure. You choose the database, the worker count, and the retention policy.',
-    },
-  ]
-
-
-  const monitoringCapabilities = [
-    {
-      category: 'Check Configuration',
-      items: [
-        'HTTP/HTTPS endpoint monitoring',
-        'GET, POST, PUT, DELETE, HEAD methods',
-        'Custom request headers per monitor',
-        'Request body for POST/PUT checks',
-        'Expected HTTP status code validation',
-        'Response keyword assertion',
-        'Maximum response time assertion',
-        'Check intervals: 30s to 1 hour',
-        'Configurable timeout per monitor',
-        'Tags for grouping and filtering',
-      ],
-    },
-    {
-      category: 'SSL & Security',
-      items: [
-        'Certificate expiry date capture',
-        'Issuer information tracking',
-        'Days-remaining calculation',
-        'Expiry warning banners on detail pages',
-        'SSL status on public status pages',
-        'Warning threshold alerts',
-      ],
-    },
-    {
-      category: 'Incident Management',
-      items: [
-        'Auto-open incidents on DOWN transition',
-        'Auto-resolve on recovery',
-        'Duration calculation on resolution',
-        'Error message preservation',
-        'Per-monitor incident history',
-        'Live duration timers on active incidents',
-        'MTTR calculation across incidents',
-        'Acknowledgement workflow',
-      ],
-    },
-    {
-      category: 'Analytics & Reporting',
-      items: [
-        '24h, 7d, 30d SLA percentages',
-        'Average, min, max latency',
-        'Response time chart (last 24h)',
-        'Fleet-wide health overview',
-        'Latency distribution histograms',
-        'Downtime heatmap by hour',
-        'Slowest services ranking',
-        'CSV log export per monitor',
-        'Cross-monitor SLA aggregation',
-      ],
-    },
-    {
-      category: 'Status Pages',
-      items: [
-        'Multiple status pages',
-        'Custom URL slugs',
-        'Monitor selection per page',
-        '90-day status history grid',
-        'Active incident display',
-        'SSL certificate info on tiles',
-        'Public or private access control',
-        'Embeddable status badges',
-      ],
-    },
-    {
-      category: 'APM Integration',
-      items: [
-        'Application registration with API keys',
-        'Endpoint-level request tracking',
-        'P95 and P99 latency metrics',
-        'Error rate per endpoint',
-        'Apdex score calculation',
-        'Traffic volume over time',
-        'Multi-environment support',
-        'Top and slowest endpoint rankings',
-      ],
-    },
-  ]
-
-  const faq = [
-    {
-      q: 'How does PingBEAT compare to UptimeRobot?',
-      a: 'UptimeRobot is a hosted SaaS service with limits on monitor counts by plan. PingBEAT is self-hosted with no per-monitor fees, adds response assertions, maintenance windows, a full log explorer, APM integration, and gives you complete data ownership.',
-    },
-    {
-      q: 'How does it compare to Better Stack Uptime?',
-      a: 'Better Stack has a polished hosted product with a strong incident management focus. PingBEAT provides similar uptime monitoring and incident tracking with the addition of APM metrics, self-hosting, and no vendor dependency — at the cost of managing your own infrastructure.',
-    },
-    {
-      q: 'What about Pingdom?',
-      a: 'Pingdom is a mature enterprise product with real-user monitoring and synthetic transactions. PingBEAT focuses on API and HTTP endpoint monitoring with a broader feature set per dollar — especially for teams that want to self-host and avoid per-check pricing.',
-    },
-    {
-      q: 'How is PingBEAT different from Datadog or New Relic?',
-      a: 'Datadog and New Relic are comprehensive observability platforms with agent-based APM, infrastructure monitoring, log management, and complex pricing. PingBEAT is intentionally narrower — focused on uptime, HTTP monitoring, and application performance metrics with a much smaller operational footprint.',
-    },
-    {
-      q: 'Can I run PingBEAT on my own server?',
-      a: 'Yes. PingBEAT is designed to be self-hosted. The backend runs on Django + Celery + Redis + PostgreSQL. The frontend is a Vite React app. Docker configuration is included to simplify deployment.',
-    },
-    {
-      q: 'How does the check scheduler work?',
-      a: 'Celery Beat triggers check_monitors every 30 seconds. The task evaluates which monitors are due for a check based on their interval_seconds setting, skips those in active maintenance windows, and dispatches individual probe tasks to Celery workers.',
-    },
-    {
-      q: 'What happens during a maintenance window?',
-      a: 'Monitors inside an active maintenance window are skipped by the check scheduler and their logs are marked with status="maintenance". Alerts are suppressed. The monitor shows an ACTIVE NOW badge on its maintenance window list during the window.',
-    },
-    {
-      q: 'How are multi-region probes supported?',
-      a: 'Celery workers can be tagged with a REGION environment variable. The check_monitors task reads this tag and stores it on each MonitorLog. The Log Explorer lets you filter by region to see which geography a check originated from.',
-    },
-  ]
 
   const combinedSchema = {
     "@context": "https://schema.org",
@@ -255,7 +224,6 @@ function AboutPage() {
         keywords="about PingBEAT, self-hosted monitoring platform, open source uptime monitoring, uptime monitoring alternative, UptimeRobot alternative, Pingdom alternative, self-hosted APM, website monitoring open source, PingBEAT features, monitoring without vendor lock-in"
         jsonLd={combinedSchema}
       />
-
 
       {/* ── Nav ── */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-sm" role="navigation" aria-label="Main Navigation">
@@ -367,7 +335,6 @@ function AboutPage() {
             ))}
           </div>
         </section>
-
 
         {/* ── How monitoring works ── */}
         <section className="py-24 max-w-7xl mx-auto px-6">

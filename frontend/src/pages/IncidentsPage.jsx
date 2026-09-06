@@ -7,16 +7,7 @@ import EmptyState from '../components/EmptyState'
 import StatusTimeline from '../components/StatusTimeline'
 import FilterChips from '../components/FilterChips'
 import { getIncidents } from '../services/api'
-
-function formatDuration(seconds) {
-  if (seconds === null || seconds === undefined) return 'Ongoing'
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
-  if (seconds < 86400) return `${Math.round(seconds / 3600)}h`
-  const days = Math.floor(seconds / 86400)
-  const hours = Math.round((seconds % 86400) / 3600)
-  return hours > 0 ? `${days}d ${hours}h` : `${days}d`
-}
+import { formatDurationRounded as formatDuration } from '../utils/duration'
 
 function IncidentDuration({ incident }) {
   const [now, setNow] = useState(Date.now())
@@ -33,6 +24,16 @@ function IncidentDuration({ incident }) {
 
   return formatDuration(Math.max(0, Math.floor((now - new Date(incident.started_at).getTime()) / 1000)))
 }
+
+// Module-level so DataTable's internal sort useMemo (keyed on the columns
+// prop) actually memoizes instead of re-sorting every render.
+const INCIDENT_HISTORY_COLUMNS = [
+  { key: 'monitor_name', header: 'Monitor', render: (row) => <Link to={`/monitors/${row.monitor}`} className="font-semibold text-slate-900 hover:text-emerald-700">{row.monitor_name || row.monitor}</Link> },
+  { key: 'started_at', header: 'Started', render: (row) => <span className="text-xs text-slate-600">{new Date(row.started_at).toLocaleString()}</span> },
+  { key: 'resolved_at', header: 'Resolved', render: (row) => row.resolved_at ? <span className="text-xs text-slate-600">{new Date(row.resolved_at).toLocaleString()}</span> : <span className="text-red-600">Active</span> },
+  { key: 'duration_seconds', header: 'Duration', render: (row) => <span className="font-mono text-xs font-semibold">{row.resolved_at ? formatDuration(row.duration_seconds) : <IncidentDuration incident={row} />}</span> },
+  { key: 'error_message', header: 'Error', render: (row) => <span className="line-clamp-1 text-xs text-slate-600">{row.error_message || '-'}</span> },
+]
 
 function IncidentsPage() {
   const [incidents, setIncidents] = useState([])
@@ -174,13 +175,9 @@ function IncidentsPage() {
           <DataTable
             rows={filtered}
             emptyTitle={loading ? 'Loading incidents...' : 'No incidents match these filters'}
-            columns={[
-              { key: 'monitor_name', header: 'Monitor', render: (row) => <Link to={`/monitors/${row.monitor}`} className="font-semibold text-slate-900 hover:text-emerald-700">{row.monitor_name || row.monitor}</Link> },
-              { key: 'started_at', header: 'Started', render: (row) => <span className="text-xs text-slate-600">{new Date(row.started_at).toLocaleString()}</span> },
-              { key: 'resolved_at', header: 'Resolved', render: (row) => row.resolved_at ? <span className="text-xs text-slate-600">{new Date(row.resolved_at).toLocaleString()}</span> : <span className="text-red-600">Active</span> },
-              { key: 'duration_seconds', header: 'Duration', render: (row) => <span className="font-mono text-xs font-semibold">{row.resolved_at ? formatDuration(row.duration_seconds) : <IncidentDuration incident={row} />}</span> },
-              { key: 'error_message', header: 'Error', render: (row) => <span className="line-clamp-1 text-xs text-slate-600">{row.error_message || '-'}</span> },
-            ]}
+            columns={INCIDENT_HISTORY_COLUMNS}
+            defaultSortKey="started_at"
+            defaultSortDir="desc"
             pageSize={12}
           />
         </section>

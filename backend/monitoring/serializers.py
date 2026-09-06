@@ -6,8 +6,6 @@ from .models import (
     StatusPage,
     MaintenanceWindow,
     Application,
-    ApiMetric,
-    ApiMetricSummary,
 )
 
 class MonitorLogSerializer(serializers.ModelSerializer):
@@ -25,7 +23,6 @@ class MonitorSerializer(serializers.ModelSerializer):
     last_status_code = serializers.SerializerMethodField()
     status_changed_at = serializers.SerializerMethodField()
     current_status = serializers.SerializerMethodField()
-    assert_status_code = serializers.IntegerField(source='expected_status', required=False)
 
     class Meta:
         model = Monitor
@@ -35,7 +32,7 @@ class MonitorSerializer(serializers.ModelSerializer):
             'last_status_code', 'status_changed_at', 'created_at',
             'http_method', 'headers', 'body', 'keyword', 'webhook_url',
             'notification_channel', 'tags', 'ssl_expiry', 'ssl_issuer',
-            'assert_keyword', 'assert_max_response_time_ms', 'assert_status_code', 'current_status'
+            'assert_keyword', 'assert_max_response_time_ms', 'current_status'
         )
         read_only_fields = (
             'id', 'is_up', 'last_checked', 'last_response_time', 'last_status_code',
@@ -67,6 +64,12 @@ class MonitorSerializer(serializers.ModelSerializer):
         return log.status_code if log else None
 
     def get_status_changed_at(self, obj):
+        recent_logs = getattr(obj, 'recent_logs', None)
+        if recent_logs is not None:
+            return self._status_changed_at_from_logs(obj, recent_logs)
+
+        # Fallback path (e.g. a Monitor fetched outside get_queryset()'s
+        # prefetch) - same logic, executed as direct queries.
         latest_is_up = getattr(obj, 'latest_is_up', None)
         if latest_is_up is None:
             log = obj.logs.only('is_up', 'checked_at').first()
@@ -91,6 +94,27 @@ class MonitorSerializer(serializers.ModelSerializer):
             .order_by('checked_at')
             .first()
         )
+        return transition_log.checked_at if transition_log else last_diff_log.checked_at
+
+    @staticmethod
+    def _status_changed_at_from_logs(obj, recent_logs):
+        """Same logic as the query-based fallback, computed in Python from an
+        already-fetched, -checked_at-descending list of recent logs."""
+        latest_is_up = getattr(obj, 'latest_is_up', None)
+        if latest_is_up is None:
+            if not recent_logs:
+                return obj.created_at
+            latest_is_up = recent_logs[0].is_up
+
+        last_diff_log = next((log for log in recent_logs if log.is_up != latest_is_up), None)
+        if not last_diff_log:
+            return recent_logs[-1].checked_at if recent_logs else obj.created_at
+
+        transition_log = None
+        for log in reversed(recent_logs):  # ascending order
+            if log.is_up == latest_is_up and log.checked_at > last_diff_log.checked_at:
+                transition_log = log
+                break
         return transition_log.checked_at if transition_log else last_diff_log.checked_at
 
     def get_current_status(self, obj):
@@ -141,28 +165,6 @@ class ApplicationSerializer(serializers.ModelSerializer):
 
     def get_metrics_count(self, obj):
         return getattr(obj, 'metrics_count', 0)
-
-
-class ApiMetricSerializer(serializers.ModelSerializer):
-    application_name = serializers.CharField(source='application.name', read_only=True)
-
-    class Meta:
-        model = ApiMetric
-        fields = (
-            'id', 'application', 'application_name', 'endpoint', 'method',
-            'status_code', 'response_time_ms', 'timestamp', 'error_message'
-        )
-        read_only_fields = fields
-
-
-class ApiMetricSummarySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ApiMetricSummary
-        fields = (
-            'id', 'application', 'endpoint', 'requests_count', 'avg_response_time',
-            'p95_latency', 'p99_latency', 'error_rate', 'minute_bucket'
-        )
-        read_only_fields = fields
 
 
 class ApiMetricIngestItemSerializer(serializers.Serializer):

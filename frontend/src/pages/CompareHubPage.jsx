@@ -1,130 +1,9 @@
-import React, { useRef, useState, useEffect } from 'react'
+import React from 'react'
 import { Link } from 'react-router-dom'
 import SeoHead from '../components/SeoHead'
 import BrandLogo from '../components/BrandLogo'
-
-function Reveal({ children, delay = 0, className = '' }) {
-  const ref = useRef(null)
-  const [visible, setVisible] = useState(false)
-  useEffect(() => {
-    const node = ref.current
-    if (!node) return
-    const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.unobserve(e.target) } },
-      { threshold: 0.08 }
-    )
-    obs.observe(node)
-    return () => obs.disconnect()
-  }, [])
-  return (
-    <div
-      ref={ref}
-      className={`transition-all duration-700 ease-out ${visible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'} ${className}`}
-      style={{ transitionDelay: `${delay}ms` }}
-    >
-      {children}
-    </div>
-  )
-}
-
-const COMPARISONS = [
-  {
-    slug: 'uptimerobot',
-    name: 'UptimeRobot',
-    category: 'Uptime Monitoring SaaS',
-    summary: 'PingBEAT offers 30-second checks, data ownership, and APM vs UptimeRobot\'s 5-min free tier.',
-    highlight: 'Self-hosted · No monitor limits · APM included',
-    color: 'emerald',
-  },
-  {
-    slug: 'pingdom',
-    name: 'Pingdom',
-    category: 'Enterprise Uptime SaaS',
-    summary: 'PingBEAT is free to self-host vs Pingdom\'s per-monitor subscription pricing starting at $10/mo.',
-    highlight: 'Free vs $10+/mo · Open source · Data control',
-    color: 'cyan',
-  },
-  {
-    slug: 'better-stack',
-    name: 'Better Stack',
-    category: 'Uptime & Incident Management SaaS',
-    summary: 'PingBEAT is free with self-hosting vs Better Stack\'s $20+/mo. Includes built-in APM.',
-    highlight: 'Free vs $20+/mo · APM included · Open source',
-    color: 'emerald',
-  },
-  {
-    slug: 'statuscake',
-    name: 'StatusCake',
-    category: 'Website Monitoring SaaS',
-    summary: 'PingBEAT gives unlimited monitors with self-hosting vs StatusCake\'s 10-monitor free tier.',
-    highlight: 'Unlimited monitors · 30-second checks',
-    color: 'cyan',
-  },
-  {
-    slug: 'site24x7',
-    name: 'Site24x7',
-    category: 'Enterprise Monitoring SaaS',
-    summary: 'PingBEAT is free to self-host vs Site24x7\'s $9+/mo enterprise subscription pricing.',
-    highlight: 'Free forever · No seat pricing · Open source',
-    color: 'emerald',
-  },
-  {
-    slug: 'checkly',
-    name: 'Checkly',
-    category: 'Synthetic Monitoring SaaS',
-    summary: 'PingBEAT handles HTTP uptime for free vs Checkly\'s usage-based billing for API checks.',
-    highlight: 'Free self-hosted · No check-run limits',
-    color: 'amber',
-  },
-  {
-    slug: 'freshping',
-    name: 'Freshping',
-    category: 'Uptime Monitoring SaaS',
-    summary: 'PingBEAT brings data ownership, 30-second intervals, and APM vs Freshping\'s SaaS model.',
-    highlight: '30-second checks · Data control · APM',
-    color: 'cyan',
-  },
-  {
-    slug: 'hyperping',
-    name: 'Hyperping',
-    category: 'Uptime Monitoring SaaS',
-    summary: 'PingBEAT is free vs Hyperping\'s $12+/mo and adds APM, full log explorer, and CSV export.',
-    highlight: 'Free vs $12+/mo · APM · Log explorer',
-    color: 'emerald',
-  },
-  {
-    slug: 'signoz',
-    name: 'SigNoz',
-    category: 'Open-Source APM & Observability',
-    summary: 'PingBEAT adds HTTP uptime monitoring and status pages that SigNoz doesn\'t provide.',
-    highlight: 'Uptime + APM · Status pages · Simple setup',
-    color: 'purple',
-  },
-  {
-    slug: 'sentry',
-    name: 'Sentry',
-    category: 'Error Tracking & APM',
-    summary: 'PingBEAT covers active HTTP uptime polling and SSL tracking that Sentry doesn\'t focus on.',
-    highlight: 'Uptime monitoring · SSL tracking · Status pages',
-    color: 'red',
-  },
-  {
-    slug: 'netdata',
-    name: 'Netdata',
-    category: 'Open-Source Infrastructure Monitoring',
-    summary: 'PingBEAT covers HTTP uptime and status pages; Netdata covers server resource metrics.',
-    highlight: 'HTTP uptime · Public status pages · Incidents',
-    color: 'blue',
-  },
-  {
-    slug: 'datadog',
-    name: 'Datadog',
-    category: 'Enterprise Observability Platform',
-    summary: 'PingBEAT is the free, self-hosted, open-source alternative for HTTP monitoring and APM.',
-    highlight: 'Free vs $1000s/mo · Open source · Self-hosted',
-    color: 'amber',
-  },
-]
+import { COMPETITORS } from '../data/competitors'
+import Reveal from '../components/Reveal'
 
 const colorMap = {
   emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
@@ -134,6 +13,18 @@ const colorMap = {
   red:     { bg: 'bg-red-50',     border: 'border-red-200',     badge: 'bg-red-100 text-red-700',         dot: 'bg-red-400' },
   blue:    { bg: 'bg-blue-50',    border: 'border-blue-200',    badge: 'bg-blue-100 text-blue-700',       dot: 'bg-blue-500' },
 }
+
+// Derived from the shared COMPETITORS data (see ../data/competitors) so this
+// hub's cards can never drift out of sync with what ComparePage.jsx renders
+// for each slug.
+const COMPARISONS = Object.entries(COMPETITORS).map(([slug, c]) => ({
+  slug,
+  name: c.name,
+  category: c.category,
+  summary: c.summary,
+  highlight: c.highlight,
+  color: c.color,
+}))
 
 const hubSchema = {
   '@context': 'https://schema.org',

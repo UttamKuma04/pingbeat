@@ -15,14 +15,20 @@ from django.utils.timezone import make_aware
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.conf import settings
+from django.db import transaction
 from celery import shared_task
+from config.emailing import send_transactional_email
 from .models import Monitor, MonitorLog, Incident, MaintenanceWindow, ApiMetric, ApiMetricSummary
 
 
-# Kept short so a lock orphaned by a hard-killed worker (OOM, deploy restart,
-# forced task termination) self-expires quickly instead of blocking every
-# scheduled run of the task for minutes.
-TASK_LOCK_TTL_SECONDS = 60
+# A hard-killed worker (OOM, deploy restart, forced task termination) still
+# self-expires the lock within this window instead of blocking every
+# scheduled run indefinitely. Raised from the previous 60s because a full
+# check_monitors pass (one HTTP request per active monitor, each up to its
+# own timeout_seconds) can legitimately exceed 60s once there are more than
+# a handful of monitors, which was letting Celery Beat start overlapping
+# runs of the same task.
+TASK_LOCK_TTL_SECONDS = 300
 REDIS_CACHE_EXCEPTIONS = (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError)
 logger = logging.getLogger(__name__)
 
@@ -87,8 +93,8 @@ def check_ssl_expiry(url_str):
                         # Make timezone aware (UTC)
                         expiry_dt = make_aware(expiry_dt, datetime_timezone.utc)
                         return expiry_dt, issuer_name
-    except Exception as e:
-        print(f"SSL certificate check failed for {url_str}: {e}")
+    except Exception:
+        logger.warning("SSL certificate check failed for %s", url_str, exc_info=True)
     return None, None
 
 
@@ -99,13 +105,27 @@ def check_monitors(self):
         return f'{task_name} already running'
 
     try:
-        monitors = Monitor.objects.filter(is_active=True)
+        monitors = list(Monitor.objects.filter(is_active=True))
         results = []
         now = timezone.now()
         probe_region = os.environ.get("PROBE_REGION", "us-east")
 
+        monitor_ids = [m.id for m in monitors]
+        # Bulk-fetch the per-monitor lookups this loop needs instead of two
+        # queries per monitor per tick (this task runs every 30s).
+        last_log_map = {
+            log.monitor_id: log
+            for log in MonitorLog.objects.filter(monitor_id__in=monitor_ids)
+                .order_by('monitor_id', '-checked_at').distinct('monitor_id')
+        }
+        active_mw_map = {}
+        for mw in MaintenanceWindow.objects.filter(
+            monitor_id__in=monitor_ids, start_time__lte=now, end_time__gte=now
+        ):
+            active_mw_map.setdefault(mw.monitor_id, mw)
+
         for monitor in monitors:
-            previous_log = monitor.logs.first()
+            previous_log = last_log_map.get(monitor.id)
             previous_is_up = previous_log.is_up if previous_log else None
 
             if previous_log:
@@ -113,8 +133,18 @@ def check_monitors(self):
                 if elapsed < (monitor.interval_seconds - 5):
                     continue
 
-            active_mw = monitor.maintenance_windows.filter(start_time__lte=now, end_time__gte=now).first()
+            active_mw = active_mw_map.get(monitor.id)
             if active_mw:
+                # An incident open when maintenance starts must be closed here,
+                # otherwise its duration keeps accruing across the whole
+                # maintenance window instead of stopping when the outage was
+                # last actually observed.
+                with transaction.atomic():
+                    Monitor.objects.select_for_update().get(pk=monitor.pk)
+                    for incident in monitor.incidents.filter(resolved_at__isnull=True):
+                        incident.resolved_at = now
+                        incident.duration_seconds = int((now - incident.started_at).total_seconds())
+                        incident.save()
                 MonitorLog.objects.create(
                     monitor=monitor,
                     is_up=True,
@@ -203,19 +233,26 @@ def check_monitors(self):
 
             if is_up:
                 if is_transition:
-                    active_incidents = monitor.incidents.filter(resolved_at__isnull=True)
-                    for incident in active_incidents:
-                        incident.resolved_at = now
-                        incident.duration_seconds = int((now - incident.started_at).total_seconds())
-                        incident.save()
+                    with transaction.atomic():
+                        Monitor.objects.select_for_update().get(pk=monitor.pk)
+                        for incident in monitor.incidents.filter(resolved_at__isnull=True):
+                            incident.resolved_at = now
+                            incident.duration_seconds = int((now - incident.started_at).total_seconds())
+                            incident.save()
             else:
                 if is_transition or (is_initial and not is_up):
-                    if not monitor.incidents.filter(resolved_at__isnull=True).exists():
-                        Incident.objects.create(
-                            monitor=monitor,
-                            started_at=now,
-                            error_message=error_message,
-                        )
+                    # select_for_update() serializes concurrent workers on this
+                    # monitor row so two overlapping check_monitors runs can't
+                    # both pass the exists() check and create duplicate
+                    # "active" incidents for the same monitor.
+                    with transaction.atomic():
+                        Monitor.objects.select_for_update().get(pk=monitor.pk)
+                        if not monitor.incidents.filter(resolved_at__isnull=True).exists():
+                            Incident.objects.create(
+                                monitor=monitor,
+                                started_at=now,
+                                error_message=error_message,
+                            )
 
             if monitor.email_alerts or monitor.webhook_url:
                 if is_transition or is_initial:
@@ -235,6 +272,7 @@ def send_monitor_alert(monitor_id, previous_is_up, is_up, error_message=''):
         user = monitor.user
 
         status_text = "UP" if is_up else "DOWN"
+        icon = "🟢" if is_up else "🔴"
         event_label = "Status Change Transition" if previous_is_up is not None else "Initial Status Check"
         
         if previous_is_up is None:
@@ -399,48 +437,15 @@ def send_monitor_alert(monitor_id, previous_is_up, is_up, error_message=''):
                         "timestamp": timezone.now().isoformat()
                     }
                     http_requests.post(monitor.webhook_url, json=payload, timeout=10)
-            except Exception as e:
-                print(f"Failed to send webhook notification for monitor {monitor_id}: {e}")
+            except Exception:
+                logger.exception("Failed to send webhook notification for monitor %s", monitor_id)
 
         # 2. Handle Email Alert
         if monitor.email_alerts and user.email:
-            # Check if Brevo is configured
-            brevo_key = getattr(settings, 'BREVO_API_KEY', None)
-            brevo_email = getattr(settings, 'BREVO_SENDER_EMAIL', None)
-            brevo_name = getattr(settings, 'BREVO_SENDER_NAME', 'Pingbeat')
-
-            if brevo_key and brevo_email:
-                url = "https://api.brevo.com/v3/smtp/email"
-                headers = {
-                    "accept": "application/json",
-                    "content-type": "application/json",
-                    "api-key": brevo_key
-                }
-                payload = {
-                    "sender": {"name": brevo_name, "email": brevo_email},
-                    "to": [{"email": user.email, "name": user.username}],
-                    "subject": subject,
-                    "textContent": body_text,
-                    "htmlContent": html_content # Applied custom HTML here
-                }
-                try:
-                    response = http_requests.post(url, json=payload, headers=headers, timeout=10)
-                    if response.status_code in (200, 201, 202):
-                        return f"Email alert sent to {user.email} successfully via Brevo API."
-                except Exception as api_err:
-                    print(f"Brevo API request exception: {api_err}")
-
-            # Fallback
-            send_mail(
-                subject=subject,
-                message=body_text,
-                from_email=brevo_email or "alerts@pingbeat.com",
-                recipient_list=[user.email],
-                fail_silently=False,
-                html_message=html_content # Applied custom HTML here
+            return send_transactional_email(
+                subject, body_text, user.email, recipient_name=user.username, html_content=html_content,
             )
-            return f"Email alert sent to {user.email} successfully via backup backend."
-            
+
     except Monitor.DoesNotExist:
         return f"Monitor {monitor_id} does not exist."
 
@@ -452,12 +457,26 @@ def cleanup_old_logs(days_to_keep=30):
     deleted_count, _ = MonitorLog.objects.filter(checked_at__lt=cutoff_date).delete()
     apm_days = getattr(settings, 'APM_METRIC_RETENTION_DAYS', 7)
     apm_cutoff = timezone.now() - timedelta(days=apm_days)
-    deleted_metrics, _ = ApiMetric.objects.filter(created_at__lt=apm_cutoff).delete()
-    summary_cutoff = timezone.now() - timedelta(days=90)
+    # Purge by the client-reported event time (timestamp), not ingestion
+    # time (created_at), so late/backfilled batches are retained/purged
+    # based on when the request actually happened, matching what every APM
+    # analytics endpoint filters on.
+    deleted_metrics, _ = ApiMetric.objects.filter(timestamp__lt=apm_cutoff).delete()
+    summary_days = getattr(settings, 'APM_SUMMARY_RETENTION_DAYS', 90)
+    summary_cutoff = timezone.now() - timedelta(days=summary_days)
     deleted_summaries, _ = ApiMetricSummary.objects.filter(minute_bucket__lt=summary_cutoff).delete()
+
+    # Resolved incidents are low-volume but higher-value (MTTR history), so
+    # they get a much longer, separately configurable retention window than
+    # raw check logs rather than never being purged at all.
+    incident_days = getattr(settings, 'INCIDENT_RETENTION_DAYS', 180)
+    incident_cutoff = timezone.now() - timedelta(days=incident_days)
+    deleted_incidents, _ = Incident.objects.filter(resolved_at__lt=incident_cutoff).delete()
+
     return (
         f"Deleted {deleted_count} logs older than {days_to_keep} days, "
-        f"{deleted_metrics} APM metrics, and {deleted_summaries} APM summaries."
+        f"{deleted_metrics} APM metrics, {deleted_summaries} APM summaries, "
+        f"and {deleted_incidents} resolved incidents."
     )
 
 
@@ -482,7 +501,10 @@ def process_apm_metrics(self, application_id, metrics):
             ))
 
         ApiMetric.objects.bulk_create(rows, batch_size=1000, ignore_conflicts=True)
-        return f"Saved {len(rows)} APM metrics for application {application_id}."
+        # bulk_create(..., ignore_conflicts=True) silently drops rows that
+        # collide with the dedup constraint, so this counts rows attempted,
+        # not rows actually persisted.
+        return f"Queued {len(rows)} APM metrics for insert (duplicates ignored) for application {application_id}."
     except Exception as exc:
         raise self.retry(exc=exc)
 

@@ -43,15 +43,6 @@ nav,
   word-break: break-word;
 }
 
-:root {
-  --pb-bg: #f8fafc;
-  --pb-panel: #ffffff;
-  --pb-border: #e2e8f0;
-  --pb-text: #0f172a;
-  --pb-muted: #64748b;
-  --pb-accent: #059669;
-}
-
 @media (min-width: 1024px) {
   .pinbeat-shell ~ header {
     left: 16rem !important;
@@ -72,16 +63,6 @@ nav,
   .pinbeat-shell-collapsed ~ .pinbeat-shell-spacer + main {
     margin-left: 5rem !important;
     width: calc(100% - 5rem) !important;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --pb-bg: #020617;
-    --pb-panel: #0f172a;
-    --pb-border: #1e293b;
-    --pb-text: #e2e8f0;
-    --pb-muted: #94a3b8;
   }
 }
 
@@ -184,11 +165,6 @@ nav,
 /* Glass card utility */
 .glass-card {
   @apply bg-white/80 backdrop-blur-xl border border-slate-200/70 rounded-lg shadow-sm;
-}
-
-/* Gradient text */
-.gradient-text {
-  @apply bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent;
 }
 
 /* Smooth focus styles */

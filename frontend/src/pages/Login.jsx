@@ -2,10 +2,13 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
 import GoogleLoginButton from '../components/GoogleLoginButton'
-import { login } from '../services/api'
+import { login, clearApiCache } from '../services/api'
 import SeoHead from '../components/SeoHead'
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// Rejects consecutive dots and malformed domain labels that the previous
+// looser pattern let through but the backend's Django EmailValidator rejects
+// (e.g. "a@b..com", "a@-b.com"), avoiding an avoidable round trip.
+const EMAIL_PATTERN = /^[^\s@.][^\s@]*@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)+$/
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -18,6 +21,7 @@ function Login() {
     const accessToken = data.access || data.tokens?.access
     const refreshToken = data.refresh || data.tokens?.refresh
 
+    clearApiCache()
     localStorage.setItem('access_token', accessToken)
     localStorage.setItem('refresh_token', refreshToken)
   }
